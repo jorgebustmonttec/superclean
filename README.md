@@ -28,4 +28,22 @@ cargo run
 ```
 
 To run a Superclean program from file:
+
+```bash
 cargo run -- path/to/file.sclean
+```
+
+## 📄 Project Structure
+
+- `src/` – language implementation
+- `docs/` – language specification and documentation
+- `examples/` – sample Superclean programs
+- `tests/` – automated tests
+
+## 📚 Documentation
+
+Full language specification, including syntax and typing rules, can be found in [`docs/spec.md`](docs/spec.md).
+
+## 💡 License
+
+This project is developed for educational purposes and has no license.
