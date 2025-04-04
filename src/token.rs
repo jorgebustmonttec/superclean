@@ -1,7 +1,7 @@
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     // Keywords
-    Let,
+    Let, 
     Fun,
     Return,
     If,
