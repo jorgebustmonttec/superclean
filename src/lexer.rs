@@ -75,8 +75,7 @@ fn lex_greater(input: &str) -> IResult<&str, Token> {
 
 
 
-
-/// Tokenizer for a single token (only int or plus for now)
+// ======================= Tokenization =======================
 fn lex_token(input: &str) -> IResult<&str, Token> {
     delimited(
         multispace0,
@@ -92,10 +91,55 @@ fn lex_token(input: &str) -> IResult<&str, Token> {
             lex_less,
             lex_greater,
             lex_int,
+            lex_lparen,
+            lex_rparen,
+            lex_lbrace,
+            lex_rbrace,
+            lex_comma,
+            lex_semicolon,
+            lex_colon,
+            
         )),
         multispace0,
     )
     .parse(input)
+}
+
+// ====================== Delimiters ======================
+
+/// Tokenize the `(` symbol
+fn lex_lparen(input: &str) -> IResult<&str, Token> {
+    char('(').map(|_| Token::LParen).parse(input)
+}
+
+/// Tokenize the `)` symbol
+fn lex_rparen(input: &str) -> IResult<&str, Token> {
+    char(')').map(|_| Token::RParen).parse(input)
+}
+
+/// Tokenize the `{` symbol
+fn lex_lbrace(input: &str) -> IResult<&str, Token> {
+    char('{').map(|_| Token::LBrace).parse(input)
+}
+
+/// Tokenize the `}` symbol
+fn lex_rbrace(input: &str) -> IResult<&str, Token> {
+    char('}').map(|_| Token::RBrace).parse(input)
+}
+
+/// Tokenize the `,` symbol
+fn lex_comma(input: &str) -> IResult<&str, Token> {
+    char(',').map(|_| Token::Comma).parse(input)
+}
+
+/// Tokenize the `;` symbol
+fn lex_semicolon(input: &str) -> IResult<&str, Token> {
+    char(';').map(|_| Token::Semicolon).parse(input)
+}
+
+/// Tokenize the `:` symbol
+fn lex_colon(input: &str) -> IResult<&str, Token> {
+    char(':').map(|_| Token::Colon).parse(input)
 }
 
 
@@ -198,5 +242,41 @@ mod tests {
         );
         */
     }
+
+    // Test lexing of delimiters
+    #[test]
+    fn test_lex_delimiters() {
+        assert_eq!(lex("("), Ok(vec![Token::LParen]));
+        assert_eq!(lex(")"), Ok(vec![Token::RParen]));
+        assert_eq!(lex("{"), Ok(vec![Token::LBrace]));
+        assert_eq!(lex("}"), Ok(vec![Token::RBrace]));
+        assert_eq!(lex(","), Ok(vec![Token::Comma]));
+        assert_eq!(lex(";"), Ok(vec![Token::Semicolon]));
+        assert_eq!(lex(":"), Ok(vec![Token::Colon]));
+    }
+
+    // Test lexing of a complex expression with delimiters
+    #[test]
+    fn test_lex_complex_expr() {
+        assert_eq!(
+            lex("1 + (2 * 3) - {4 / 5}"),
+            Ok(vec![
+                Token::Integer(1),
+                Token::Plus,
+                Token::LParen,
+                Token::Integer(2),
+                Token::Star,
+                Token::Integer(3),
+                Token::RParen,
+                Token::Minus,
+                Token::LBrace,
+                Token::Integer(4),
+                Token::Slash,
+                Token::Integer(5),
+                Token::RBrace
+            ])
+        );
+    }
+    // Test lexing of a complex expression with delimiters and spaces
 
 }
