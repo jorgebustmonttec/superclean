@@ -1,16 +1,6 @@
 # Superclean Language Specification
 
----
-
-## 1. Language Introduction (100 pts)
-
-Superclean is a minimal, statically typed, interpreted scripting language designed for clarity and ease of implementation.
-
-It uses familiar syntax inspired by C, JavaScript, and Rust, and is implemented in Rust using the `nom` and `rustyline` crates.
-
----
-
-## 2. Language Specification (600 pts)
+# 2. Language Specification (600 pts)
 
 ---
 
@@ -194,38 +184,3 @@ print("Hello, world!");
 ```
 
 ---
-
-## 4. Tutorial and Exercises (200 pts)
-
-### 4.1 Getting Started Tutorial (100 pts)
-
-> **TODO**: Write a short tutorial guiding a new user.
-
-```superclean
-let x: Int = 5;
-
-fun add(a: Int, b: Int): Int {
-    return a + b;
-}
-
-print(add(x, 3));
-```
-
-### 4.2 Five Programming Exercises (100 pts)
-
-> **TODO**: Add problem + solution code for each.
-
-#### Example: Fibonacci
-
-**Problem**: Write a recursive function `fib(n: Int): Int` that returns the nth Fibonacci number.
-
-**Solution**:
-
-```superclean
-fun fib(n: Int): Int {
-    if n <= 1 {
-        return n;
-    }
-    return fib(n - 1) + fib(n - 2);
-}
-```

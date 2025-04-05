@@ -1,6 +1,10 @@
 # Superclean
 
-Superclean is a minimalist, statically typed scripting language designed for clarity, simplicity, and educational purposes.
+## 🧼 Introduction (1.0)
+
+Superclean is a minimal, statically typed, interpreted scripting language designed for clarity and ease of implementation.
+
+It uses familiar syntax inspired by C, JavaScript, and Rust, and is implemented in Rust using the `nom` and `rustyline` crates.
 
 This project was developed as part of the course **CS-C2170 – Modern and Emerging Programming Languages** at **Aalto University**.
 
