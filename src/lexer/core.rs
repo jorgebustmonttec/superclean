@@ -1,27 +1,21 @@
 use nom::{
-    branch::alt,
-    character::complete::multispace0,
+    Err as NomErr, IResult, Parser, branch::alt, character::complete::multispace0,
     sequence::delimited,
-    IResult,
-    Err as NomErr,
-    Parser,
 };
 
-
-use crate::token::Token;
 use crate::error::LexError;
+use crate::token::Token;
 
-use crate::lexer::comments::{lex_line_comment, lex_block_comment};
-use crate::lexer::literals::{lex_int, lex_string};
-use crate::lexer::operators::{
-    lex_equal_equal, lex_not_equal, lex_less_equal, lex_greater_equal,
-    lex_equal, lex_plus, lex_minus, lex_star, lex_slash, lex_less, lex_greater,
+use crate::lexer::comments::{lex_block_comment, lex_line_comment};
+use crate::lexer::delimiters::{
+    lex_colon, lex_comma, lex_lbrace, lex_lparen, lex_rbrace, lex_rparen, lex_semicolon,
 };
 use crate::lexer::keywords::lex_identifier_or_keyword;
-use crate::lexer::delimiters::{
-    lex_lparen, lex_rparen, lex_lbrace, lex_rbrace, lex_comma, lex_semicolon, lex_colon,
+use crate::lexer::literals::{lex_int, lex_string};
+use crate::lexer::operators::{
+    lex_equal, lex_equal_equal, lex_greater, lex_greater_equal, lex_less, lex_less_equal,
+    lex_minus, lex_not_equal, lex_plus, lex_slash, lex_star,
 };
-
 
 /// Tokenize a single token from the input string.
 fn lex_token(input: &str) -> IResult<&str, Token> {
@@ -55,17 +49,15 @@ fn lex_token(input: &str) -> IResult<&str, Token> {
         lex_unrecognized, // ← ADD THIS LAST
     ));
 
-    delimited(
-        multispace0,
-        alt((token_parser, token_parser2)),
-        multispace0,
-    )
-    .parse(input)
+    delimited(multispace0, alt((token_parser, token_parser2)), multispace0).parse(input)
 }
 
 /// Tokenize unrecognized input
 fn lex_unrecognized(_input: &str) -> IResult<&str, Token> {
-    Err(nom::Err::Error(nom::error::Error::new(_input, nom::error::ErrorKind::Tag)))
+    Err(nom::Err::Error(nom::error::Error::new(
+        _input,
+        nom::error::ErrorKind::Tag,
+    )))
 }
 
 /// Helper function to find the line and column of a given position in the input string
@@ -73,7 +65,7 @@ pub fn find_line_and_column(input: &str, position: usize) -> (usize, usize) {
     let mut line = 1;
     let mut column = 1;
 
-    for (i, c) in input.char_indices().take(position) {
+    for (_i, c) in input.char_indices().take(position) {
         if c == '\n' {
             line += 1;
             column = 1;
@@ -85,11 +77,7 @@ pub fn find_line_and_column(input: &str, position: usize) -> (usize, usize) {
     (line, column)
 }
 
-
-
-
 // ================= Main Lexing Function =================
-
 
 /// Tokenize the full input string
 pub fn lex(input: &str) -> Result<Vec<Token>, LexError> {
