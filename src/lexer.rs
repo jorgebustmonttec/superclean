@@ -142,6 +142,11 @@ fn lex_identifier_or_keyword(input: &str) -> IResult<&str, Token> {
         .parse(input)
 }
 
+/// Tokenize the `=` symbol/// Tokenize the `=` symbol
+fn lex_equal(input: &str) -> IResult<&str, Token> {
+    char('=').map(|_| Token::Equal).parse(input)
+}
+
 
 // ======================= Tokenization =======================
 
@@ -154,13 +159,14 @@ fn lex_token(input: &str) -> IResult<&str, Token> {
             lex_not_equal,
             lex_less_equal,
             lex_greater_equal,
+            lex_equal,
             lex_plus,
             lex_minus,
             lex_star,
             lex_slash,
             lex_less,
             lex_greater,
-            lex_identifier_or_keyword, // <== add this here
+            lex_identifier_or_keyword,
             lex_int,
             lex_lparen,
             lex_rparen,
@@ -332,6 +338,79 @@ mod tests {
         assert_eq!(lex("x"), Ok(vec![Token::Identifier("x".to_string())]));
         assert_eq!(lex("foo123"), Ok(vec![Token::Identifier("foo123".to_string())]));
     }
+
+    // Test lexing variable binding
+    #[test]
+    fn test_lex_let_binding() {
+        assert_eq!(
+            lex("let x = 5;"),
+            Ok(vec![
+                Token::Let,
+                Token::Identifier("x".to_string()),
+                Token::Equal,
+                Token::Integer(5),
+                Token::Semicolon,
+            ])
+        );
+    }
+
+    // Test lexing function definition
+    #[test]
+    fn test_lex_fun_definition() {
+        assert_eq!(
+            lex("fun add(x: Int, y: Int): Int { return x + y; }"),
+            Ok(vec![
+                Token::Fun,
+                Token::Identifier("add".to_string()),
+                Token::LParen,
+                Token::Identifier("x".to_string()),
+                Token::Colon,
+                Token::IntType,
+                Token::Comma,
+                Token::Identifier("y".to_string()),
+                Token::Colon,
+                Token::IntType,
+                Token::RParen,
+                Token::Colon,
+                Token::IntType,
+                Token::LBrace,
+                Token::Return,
+                Token::Identifier("x".to_string()),
+                Token::Plus,
+                Token::Identifier("y".to_string()),
+                Token::Semicolon,
+                Token::RBrace,
+            ])
+        );
+    }
+
+    // Test lexing an if-else statement
+    #[test]
+    fn test_lex_if_else_expr() {
+        assert_eq!(
+            lex("if x > 0 { print x; } else { print 0; }"),
+            Ok(vec![
+                Token::If,
+                Token::Identifier("x".to_string()),
+                Token::Greater,
+                Token::Integer(0),
+                Token::LBrace,
+                Token::Print,
+                Token::Identifier("x".to_string()),
+                Token::Semicolon,
+                Token::RBrace,
+                Token::Else,
+                Token::LBrace,
+                Token::Print,
+                Token::Integer(0),
+                Token::Semicolon,
+                Token::RBrace,
+            ])
+        );
+    }
+
+
+
 
 
 }
