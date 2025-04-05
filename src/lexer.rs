@@ -1,6 +1,6 @@
 use nom::{
     branch::alt,
-    character::complete::{char, digit1, multispace0},
+    character::complete::{char, digit1, multispace0, alphanumeric0, alpha1},
     combinator::map_res,
     multi::many0,
     sequence::delimited,
@@ -74,37 +74,6 @@ fn lex_greater(input: &str) -> IResult<&str, Token> {
 }
 
 
-
-// ======================= Tokenization =======================
-fn lex_token(input: &str) -> IResult<&str, Token> {
-    delimited(
-        multispace0,
-        alt((
-            lex_equal_equal,
-            lex_not_equal,
-            lex_less_equal,
-            lex_greater_equal,
-            lex_plus,
-            lex_minus,
-            lex_star,
-            lex_slash,
-            lex_less,
-            lex_greater,
-            lex_int,
-            lex_lparen,
-            lex_rparen,
-            lex_lbrace,
-            lex_rbrace,
-            lex_comma,
-            lex_semicolon,
-            lex_colon,
-            
-        )),
-        multispace0,
-    )
-    .parse(input)
-}
-
 // ====================== Delimiters ======================
 
 /// Tokenize the `(` symbol
@@ -142,6 +111,72 @@ fn lex_colon(input: &str) -> IResult<&str, Token> {
     char(':').map(|_| Token::Colon).parse(input)
 }
 
+
+// ======================= Keywords =======================
+
+/// Tokenize identifiers and keywords.
+/// If the word is a keyword (like `let`, `if`, `true`), return that token.
+/// Otherwise, return it as an `Identifier(String)`.
+fn lex_identifier_or_keyword(input: &str) -> IResult<&str, Token> {
+    // Match a sequence that starts with a letter and may be followed by letters/numbers
+    let ident_parser = (alpha1, alphanumeric0)
+        .map(|(first, rest): (&str, &str)| format!("{first}{rest}"));
+
+    ident_parser
+        .map(|word| match word.as_str() {
+            "let" => Token::Let,
+            "fun" => Token::Fun,
+            "return" => Token::Return,
+            "if" => Token::If,
+            "else" => Token::Else,
+            "while" => Token::While,
+            "print" => Token::Print,
+            "true" => Token::True,
+            "false" => Token::False,
+            "Int" => Token::IntType,
+            "Bool" => Token::BoolType,
+            "String" => Token::StringType,
+            "Unit" => Token::UnitType,
+            _ => Token::Identifier(word),
+        })
+        .parse(input)
+}
+
+
+// ======================= Tokenization =======================
+
+/// Tokenize a single token from the input string.
+fn lex_token(input: &str) -> IResult<&str, Token> {
+    delimited(
+        multispace0,
+        alt((
+            lex_equal_equal,
+            lex_not_equal,
+            lex_less_equal,
+            lex_greater_equal,
+            lex_plus,
+            lex_minus,
+            lex_star,
+            lex_slash,
+            lex_less,
+            lex_greater,
+            lex_identifier_or_keyword, // <== add this here
+            lex_int,
+            lex_lparen,
+            lex_rparen,
+            lex_lbrace,
+            lex_rbrace,
+            lex_comma,
+            lex_semicolon,
+            lex_colon,
+        )),
+        multispace0,
+    )
+    .parse(input)
+}
+
+
+// ================= Main Lexing Function =================
 
 /// Tokenize the full input string
 pub fn lex(input: &str) -> Result<Vec<Token>, String> {
@@ -277,6 +312,26 @@ mod tests {
             ])
         );
     }
-    // Test lexing of a complex expression with delimiters and spaces
+
+    // Test lexing of identifiers and keywords
+    #[test]
+    fn test_lex_identifiers_and_keywords() {
+        assert_eq!(lex("let"), Ok(vec![Token::Let]));
+        assert_eq!(lex("fun"), Ok(vec![Token::Fun]));
+        assert_eq!(lex("return"), Ok(vec![Token::Return]));
+        assert_eq!(lex("if"), Ok(vec![Token::If]));
+        assert_eq!(lex("else"), Ok(vec![Token::Else]));
+        assert_eq!(lex("while"), Ok(vec![Token::While]));
+        assert_eq!(lex("print"), Ok(vec![Token::Print]));
+        assert_eq!(lex("true"), Ok(vec![Token::True]));
+        assert_eq!(lex("false"), Ok(vec![Token::False]));
+        assert_eq!(lex("Int"), Ok(vec![Token::IntType]));
+        assert_eq!(lex("Bool"), Ok(vec![Token::BoolType]));
+        assert_eq!(lex("String"), Ok(vec![Token::StringType]));
+        assert_eq!(lex("Unit"), Ok(vec![Token::UnitType]));
+        assert_eq!(lex("x"), Ok(vec![Token::Identifier("x".to_string())]));
+        assert_eq!(lex("foo123"), Ok(vec![Token::Identifier("foo123".to_string())]));
+    }
+
 
 }
