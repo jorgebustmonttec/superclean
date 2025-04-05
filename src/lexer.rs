@@ -594,7 +594,71 @@ mod tests {
     }
 
 
+    //full test
+    #[test]
+    fn test_lex_full() {
+        let input = r#"
+            let x = 5;
+            fun add(a: Int, b: Int): Int {
+                return a + b;
+            }
+            if x > 0 {
+                print("x is positive");
+            } else {
+                print("x is non-positive");
+            }
+        "#;
 
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                Token::Let,
+                Token::Identifier("x".to_string()),
+                Token::Equal,
+                Token::Integer(5),
+                Token::Semicolon,
+                Token::Fun,
+                Token::Identifier("add".to_string()),
+                Token::LParen,
+                Token::Identifier("a".to_string()),
+                Token::Colon,
+                Token::IntType,
+                Token::Comma,
+                Token::Identifier("b".to_string()),
+                Token::Colon,
+                Token::IntType,
+                Token::RParen,
+                Token::Colon,
+                Token::IntType,
+                Token::LBrace,
+                Token::Return,
+                Token::Identifier("a".to_string()),
+                Token::Plus,
+                Token::Identifier("b".to_string()),
+                Token::Semicolon,
+                Token::RBrace,
+                Token::If,
+                Token::Identifier("x".to_string()),
+                Token::Greater,
+                Token::Integer(0),
+                Token::LBrace,
+                Token::Print,
+                Token::LParen,
+                Token::StringLiteral("x is positive".to_string()),
+                Token::RParen,
+                Token::Semicolon,
+                Token::RBrace,
+                Token::Else,
+                Token::LBrace,
+                Token::Print,
+                Token::LParen,
+                Token::StringLiteral("x is non-positive".to_string()),
+                Token::RParen,
+                Token::Semicolon,
+                Token::RBrace
+            ])
+        );
+    }
 
 
 }
