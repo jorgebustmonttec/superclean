@@ -1,9 +1,10 @@
 use nom::{
     branch::alt,
-    character::complete::{char, digit1, multispace0, alphanumeric0, alpha1},
-    combinator::map_res,
+    bytes::complete::{escaped_transform, is_not, tag, take_while1},
+    character::complete::{char, digit1, multispace0, alphanumeric0, alpha1, none_of},
+    combinator::{map_res, recognize},
     multi::many0,
-    sequence::delimited,
+    sequence::{delimited, preceded},
     IResult, Parser,
 };
 
@@ -148,6 +149,57 @@ fn lex_equal(input: &str) -> IResult<&str, Token> {
 }
 
 
+// ======================= String Literals =======================
+
+/// Tokenize a string literal like `"hello"`
+/// Supports escaped characters like `\"`, `\\`, `\n`
+fn lex_string(input: &str) -> IResult<&str, Token> {
+    println!("===> TRYING TO PARSE STRING from: {input:?}");
+
+    let mut escaped = false;
+    let mut result = String::new();
+    let mut chars = input.chars().enumerate();
+
+    // Ensure it starts with a "
+    let Some((mut i, '"')) = chars.next() else {
+        return Err(nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Char)));
+    };
+
+    // Walk through characters
+    while let Some((j, c)) = chars.next() {
+        i = j;
+        if escaped {
+            let unescaped = match c {
+                'n' => '\n',
+                't' => '\t',
+                '\\' => '\\',
+                '"' => '"',
+                other => {
+                    // Invalid escape, we can reject or include literally
+                    result.push('\\');
+                    result.push(other);
+                    escaped = false;
+                    continue;
+                }
+            };
+            result.push(unescaped);
+            escaped = false;
+        } else if c == '\\' {
+            escaped = true;
+        } else if c == '"' {
+            // End of string
+            let rest = &input[i + 1..];
+            println!("===> STRING SUCCESSFULLY PARSED: {result:?}");
+            return Ok((rest, Token::StringLiteral(result)));
+        } else {
+            result.push(c);
+        }
+    }
+
+    // If we reached here, we never found closing quote
+    Err(nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Char)))
+}
+
 // ======================= Tokenization =======================
 
 /// Tokenize a single token from the input string.
@@ -155,6 +207,7 @@ fn lex_token(input: &str) -> IResult<&str, Token> {
     delimited(
         multispace0,
         alt((
+            lex_string,
             lex_equal_equal,
             lex_not_equal,
             lex_less_equal,
@@ -180,6 +233,7 @@ fn lex_token(input: &str) -> IResult<&str, Token> {
     )
     .parse(input)
 }
+
 
 
 // ================= Main Lexing Function =================
@@ -408,6 +462,51 @@ mod tests {
             ])
         );
     }
+
+    // Test lexing string literals
+
+    // Test lexing a simple string
+    #[test]
+    fn test_lex_string_simple() {
+        assert_eq!(
+            lex(r#""hello world""#),
+            Ok(vec![Token::StringLiteral("hello world".to_string())])
+        );
+    }
+    
+    // Test lexing a string with escaped quotes
+    #[test]
+    fn test_lex_string_with_quotes() {
+        assert_eq!(
+            lex(r#""He said \"hi\"""#),
+            Ok(vec![Token::StringLiteral("He said \"hi\"".to_string())])
+        );
+    }
+    
+    // Test lexing a string with escaped backslashes
+    #[test]
+    fn test_lex_string_escaped_stuff() {
+        assert_eq!(
+            lex("\"escaped \\\\ and \\n and \\\"quotes\\\"\""),
+            Ok(vec![Token::StringLiteral("escaped \\ and \n and \"quotes\"".to_string())])
+        );
+    }
+    
+    // Test lexing a string with invalid escape sequences
+    #[test]
+    fn test_lex_string_inside_call() {
+        assert_eq!(
+            lex(r#"print("hi");"#),
+            Ok(vec![
+                Token::Print,
+                Token::LParen,
+                Token::StringLiteral("hi".to_string()),
+                Token::RParen,
+                Token::Semicolon,
+            ])
+        );
+    }
+    
 
 
 
