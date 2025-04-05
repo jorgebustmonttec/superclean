@@ -1,7 +1,5 @@
 # Superclean Language Specification
 
-# 2. Language Specification (600 pts)
-
 ---
 
 ### 2.1 Syntax (250 pts)
@@ -114,7 +112,7 @@ enum Type {
 
 ### 2.2 Semantics (350 pts)
 
-#### 2.2.1 Statics and Typing (100 pts)
+#### 2.2.1 Statics and typing spelled out (100 pts)
 
 > **TODO**: Describe type rules in plain English. Example:
 
@@ -123,7 +121,7 @@ enum Type {
 - Function calls must match the number and types of parameters.
 - The `Unit` type is returned from functions that do not return values.
 
-#### 2.2.2 Typing Rules (50 pts)
+#### 2.2.2 Typing expressed using typing rules (50 pts)
 
 > **TODO**: Use inference-style notation. Example:
 
@@ -139,7 +137,7 @@ enum Type {
 Γ ⊢ x : T
 ```
 
-#### 2.2.3 Evaluation Semantics (100 pts)
+#### 2.2.3 Dynamics and Evaluation spelled out (100 pts)
 
 > **TODO**: Describe how evaluation works. Example:
 
@@ -147,7 +145,7 @@ enum Type {
 - Function calls evaluate arguments first, then apply the function body.
 - Expressions inside parentheses are evaluated first.
 
-#### 2.2.4 Evaluation Rules (50 pts)
+#### 2.2.4 Dynamics expressed using evaluation rules (50 pts)
 
 > **TODO**: Add evaluation rules like:
 
@@ -160,27 +158,9 @@ e1 + e2 → e1' + e2
 5 + 3 → 8
 ```
 
-#### 2.2.5 Type Safety and Expressiveness (50 pts)
+#### 2.2.5 Type Safety and computational Expressiveness (50 pts)
 
 > **TODO**: Short section stating:
 
 - Superclean guarantees type safety: expressions do not change type during evaluation.
 - It supports general-purpose programming through variables, functions, control flow, and recursion.
-
----
-
-## 3. Standard Library Reference (100 pts)
-
-> **TODO**: Even if you don’t implement it, write a reference for functions you’d _want_ to include.
-
-Example:
-
-### `print(x: String): Unit`
-
-Prints a string to the console.
-
-```superclean
-print("Hello, world!");
-```
-
----
