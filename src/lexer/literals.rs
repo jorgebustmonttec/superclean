@@ -1,10 +1,19 @@
 use crate::token::Token;
 use nom::{IResult, Parser, character::complete::digit1, combinator::map_res};
 
+/// Lexes an integer literal composed of digits (`0-9`).
+///
+/// Parses the digit sequence into an `i64` and wraps it in a `Token::Integer`.
 pub fn lex_int(input: &str) -> IResult<&str, Token> {
     map_res(digit1, |s: &str| s.parse::<i64>().map(Token::Integer)).parse(input)
 }
 
+/// Lexes a string literal surrounded by double quotes.
+///
+/// Supports common escape sequences such as `\\`, `\"`, `\n`, and `\t`.
+/// Returns a `Token::StringLiteral` with the interpreted contents.
+///
+/// Returns an error if the string is unterminated.
 pub fn lex_string(input: &str) -> IResult<&str, Token> {
     println!("===> TRYING TO PARSE STRING from: {input:?}");
 

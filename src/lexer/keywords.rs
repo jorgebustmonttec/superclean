@@ -1,9 +1,20 @@
-use nom::{character::complete::{alpha1, alphanumeric0}, IResult, Parser};
 use crate::token::Token;
+use nom::{
+    IResult, Parser,
+    character::complete::{alpha1, alphanumeric0},
+};
 
+/// Lexes an identifier or keyword from the input.
+///
+/// If the matched string corresponds to a reserved keyword (like `let`, `fun`, or `if`),
+/// the appropriate token is returned. Otherwise, the string is returned as an `Identifier`.
+///
+/// # Example
+/// - `"let"` → `Token::Let`
+/// - `"foo123"` → `Token::Identifier("foo123".to_string())``
 pub fn lex_identifier_or_keyword(input: &str) -> IResult<&str, Token> {
-    let ident_parser = (alpha1, alphanumeric0)
-        .map(|(first, rest): (&str, &str)| format!("{first}{rest}"));
+    let ident_parser =
+        (alpha1, alphanumeric0).map(|(first, rest): (&str, &str)| format!("{first}{rest}"));
 
     ident_parser
         .map(|word| match word.as_str() {
