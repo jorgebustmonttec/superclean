@@ -1,12 +1,11 @@
-pub mod literals;
-pub mod operators;
-pub mod delimiters;
-pub mod keywords;
 pub mod comments;
 pub mod core;
+pub mod delimiters;
+pub mod keywords;
+pub mod literals;
+pub mod operators;
 
-pub use core::{lex, find_line_and_column};
-
+pub use core::{find_line_and_column, lex};
 
 // ======================= Tests =======================
 
@@ -14,7 +13,6 @@ pub use core::{lex, find_line_and_column};
 mod tests {
     use super::*;
     use crate::token::Token;
-
 
     // ======================= Tests =======================
 
@@ -155,7 +153,10 @@ mod tests {
         assert_eq!(lex("String"), Ok(vec![Token::StringType]));
         assert_eq!(lex("Unit"), Ok(vec![Token::UnitType]));
         assert_eq!(lex("x"), Ok(vec![Token::Identifier("x".to_string())]));
-        assert_eq!(lex("foo123"), Ok(vec![Token::Identifier("foo123".to_string())]));
+        assert_eq!(
+            lex("foo123"),
+            Ok(vec![Token::Identifier("foo123".to_string())])
+        );
     }
 
     // Test lexing variable binding
@@ -238,7 +239,7 @@ mod tests {
             Ok(vec![Token::StringLiteral("hello world".to_string())])
         );
     }
-    
+
     // Test lexing a string with escaped quotes
     #[test]
     fn test_lex_string_with_quotes() {
@@ -247,16 +248,18 @@ mod tests {
             Ok(vec![Token::StringLiteral("He said \"hi\"".to_string())])
         );
     }
-    
+
     // Test lexing a string with escaped backslashes
     #[test]
     fn test_lex_string_escaped_stuff() {
         assert_eq!(
             lex("\"escaped \\\\ and \\n and \\\"quotes\\\"\""),
-            Ok(vec![Token::StringLiteral("escaped \\ and \n and \"quotes\"".to_string())])
+            Ok(vec![Token::StringLiteral(
+                "escaped \\ and \n and \"quotes\"".to_string()
+            )])
         );
     }
-    
+
     // Test lexing a string with invalid escape sequences
     #[test]
     fn test_lex_string_inside_call() {
@@ -271,7 +274,6 @@ mod tests {
             ])
         );
     }
-    
 
     #[test]
     fn test_lex_line_comment() {
@@ -299,7 +301,9 @@ mod tests {
     fn test_lex_block_comment() {
         assert_eq!(
             lex("/* this is a block comment */"),
-            Ok(vec![Token::BlockComment(" this is a block comment ".to_string())])
+            Ok(vec![Token::BlockComment(
+                " this is a block comment ".to_string()
+            )])
         );
     }
 
@@ -320,7 +324,6 @@ mod tests {
             ])
         );
     }
-
 
     //full test
     #[test]
@@ -388,7 +391,6 @@ mod tests {
         );
     }
 
-
     // Error handling tests
 
     #[test]
@@ -402,17 +404,14 @@ mod tests {
     #[test]
     fn test_lex_error_position_multiline() {
         let code = r#"
-            let x = 5;
-            let y = @;
+let x = 5;
+let y = @;
         "#;
 
         let err = lex(code).unwrap_err();
         assert_eq!(err.line, 3);
-        assert!(err.column > 0); // You can refine this later if needed
+        //assert!(err.column > 0); // You can refine this later if needed
+        assert_eq!(err.column, 9);
         assert!(err.message.contains("Unrecognized"));
-        
     }
-
-
-
 }
