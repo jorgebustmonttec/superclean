@@ -1,14 +1,16 @@
 use nom::{
     branch::alt,
-    bytes::complete::{escaped_transform, is_not, tag, take_while1},
-    character::complete::{char, digit1, multispace0, alphanumeric0, alpha1, none_of},
-    combinator::{map_res, recognize},
+    bytes::complete::{tag, take_while, take_until}, // <-- ADD these here
+    character::complete::{char, digit1, multispace0, alphanumeric0, alpha1},
+    combinator::{map_res},
     multi::many0,
     sequence::{delimited, preceded},
     IResult, Parser,
 };
 
 use crate::token::Token;
+
+
 
 
 // ======================= Literals =======================
@@ -200,35 +202,70 @@ fn lex_string(input: &str) -> IResult<&str, Token> {
     Err(nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Char)))
 }
 
+
+/// ======================= Comments =======================
+
+/// Tokenize line comments that start with `//`
+/// Consumes until the end of the line or input
+fn lex_line_comment(input: &str) -> IResult<&str, Token> {
+    preceded(
+        tag("//"),
+        take_while(|c| c != '\n'),
+    )
+    .map(|text: &str| Token::LineComment(text.to_string()))
+    .parse(input)
+}
+
+/// Tokenize block comments like `/* ... */`
+/// Consumes everything until the closing `*/`
+fn lex_block_comment(input: &str) -> IResult<&str, Token> {
+    delimited(
+        tag("/*"),
+        take_until("*/"),
+        tag("*/"),
+    )
+    .map(|text: &str| Token::BlockComment(text.to_string()))
+    .parse(input)
+}
+
+
+
 // ======================= Tokenization =======================
 
 /// Tokenize a single token from the input string.
 fn lex_token(input: &str) -> IResult<&str, Token> {
+    let token_parser = alt((
+        lex_line_comment,
+        lex_block_comment,
+        lex_string,
+        lex_equal_equal,
+        lex_not_equal,
+        lex_less_equal,
+        lex_greater_equal,
+        lex_equal,
+        lex_plus,
+    ));
+
+    let token_parser2 = alt((
+        lex_minus,
+        lex_star,
+        lex_slash,
+        lex_less,
+        lex_greater,
+        lex_identifier_or_keyword,
+        lex_int,
+        lex_lparen,
+        lex_rparen,
+        lex_lbrace,
+        lex_rbrace,
+        lex_comma,
+        lex_semicolon,
+        lex_colon,
+    ));
+
     delimited(
         multispace0,
-        alt((
-            lex_string,
-            lex_equal_equal,
-            lex_not_equal,
-            lex_less_equal,
-            lex_greater_equal,
-            lex_equal,
-            lex_plus,
-            lex_minus,
-            lex_star,
-            lex_slash,
-            lex_less,
-            lex_greater,
-            lex_identifier_or_keyword,
-            lex_int,
-            lex_lparen,
-            lex_rparen,
-            lex_lbrace,
-            lex_rbrace,
-            lex_comma,
-            lex_semicolon,
-            lex_colon,
-        )),
+        alt((token_parser, token_parser2)),
         multispace0,
     )
     .parse(input)
@@ -507,6 +544,54 @@ mod tests {
         );
     }
     
+
+    #[test]
+    fn test_lex_line_comment() {
+        assert_eq!(
+            lex("// hello world"),
+            Ok(vec![Token::LineComment(" hello world".to_string())])
+        );
+    }
+
+    #[test]
+    fn test_lex_line_comment_with_code() {
+        assert_eq!(
+            lex("x = 5; // this is a comment"),
+            Ok(vec![
+                Token::Identifier("x".to_string()),
+                Token::Equal,
+                Token::Integer(5),
+                Token::Semicolon,
+                Token::LineComment(" this is a comment".to_string()),
+            ])
+        );
+    }
+
+    #[test]
+    fn test_lex_block_comment() {
+        assert_eq!(
+            lex("/* this is a block comment */"),
+            Ok(vec![Token::BlockComment(" this is a block comment ".to_string())])
+        );
+    }
+
+    #[test]
+    fn test_lex_block_comment_with_code() {
+        assert_eq!(
+            lex("x = 5; /* set x to five */ y = 10;"),
+            Ok(vec![
+                Token::Identifier("x".to_string()),
+                Token::Equal,
+                Token::Integer(5),
+                Token::Semicolon,
+                Token::BlockComment(" set x to five ".to_string()),
+                Token::Identifier("y".to_string()),
+                Token::Equal,
+                Token::Integer(10),
+                Token::Semicolon,
+            ])
+        );
+    }
 
 
 

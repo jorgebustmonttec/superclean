@@ -19,6 +19,9 @@ pub enum Token {
     Identifier(String),
     Integer(i64),
     StringLiteral(String),
+    LineComment(String),
+    BlockComment(String),
+
 
     // Operators
     Plus,
