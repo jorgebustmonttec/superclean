@@ -12,7 +12,7 @@ use crate::lexer::delimiters::{
     lex_semicolon,
 };
 use crate::lexer::keywords::lex_identifier_or_keyword;
-use crate::lexer::literals::{lex_int, lex_string};
+use crate::lexer::literals::{lex_float, lex_int, lex_string};
 use crate::lexer::operators::{
     lex_colon, lex_equal, lex_equal_equal, lex_greater, lex_greater_equal, lex_less,
     lex_less_equal, lex_minus, lex_not_equal, lex_percent, lex_plus, lex_slash, lex_star,
@@ -50,6 +50,7 @@ fn lex_token(input: &str) -> IResult<&str, Token> {
         lex_less,
         lex_greater,
         lex_identifier_or_keyword,
+        lex_float,
         lex_int,
         lex_lparen,
         lex_rparen,

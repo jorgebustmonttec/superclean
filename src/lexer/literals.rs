@@ -1,11 +1,26 @@
 use crate::token::Token;
-use nom::{IResult, Parser, character::complete::digit1, combinator::map_res};
+use nom::{
+    IResult, Parser,
+    character::complete::{char, digit1},
+    combinator::{map_res, recognize},
+};
 
 /// Lexes an integer literal composed of digits (`0-9`).
 ///
 /// Parses the digit sequence into an `i64` and wraps it in a `Token::Integer`.
 pub fn lex_int(input: &str) -> IResult<&str, Token> {
     map_res(digit1, |s: &str| s.parse::<i64>().map(Token::Integer)).parse(input)
+}
+
+/// Lexes a float literal like `3.14` or `10.0`
+///
+/// Parses the digit sequence before and after the decimal point into a `f64`
+/// and wraps it in a `Token::Float`.
+/// The decimal point is mandatory, and the function will fail if the input
+pub fn lex_float(input: &str) -> IResult<&str, Token> {
+    recognize((digit1, char('.'), digit1))
+        .map_res(|s: &str| s.parse::<f64>().map(Token::Float))
+        .parse(input)
 }
 
 /// Lexes a string literal surrounded by double quotes.

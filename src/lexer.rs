@@ -446,4 +446,26 @@ let y = @;
             ])
         );
     }
+
+    #[test]
+    fn test_lex_floats() {
+        assert_eq!(lex("3.14"), Ok(vec![Token::Float(3.14)]));
+        assert_eq!(lex("0.001"), Ok(vec![Token::Float(0.001)]));
+        assert_eq!(lex("10.0"), Ok(vec![Token::Float(10.0)]));
+        assert_eq!(
+            lex("1.0 + 2"),
+            Ok(vec![Token::Float(1.0), Token::Plus, Token::Integer(2)])
+        );
+    }
+
+    #[test]
+    fn test_lex_float_then_id() {
+        assert_eq!(
+            lex("3.14abc"),
+            Ok(vec![
+                Token::Float(3.14),
+                Token::Identifier("abc".to_string())
+            ])
+        );
+    }
 }
