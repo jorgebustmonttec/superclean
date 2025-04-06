@@ -1,7 +1,9 @@
 use nom::{IResult, Parser, branch::alt};
 
+use crate::ast::BinOp;
 use crate::ast::Expr;
 use crate::token::Token;
+use nom::combinator::map;
 
 type Tokens<'a> = &'a [Token];
 
@@ -9,7 +11,8 @@ type Tokens<'a> = &'a [Token];
 /// Parser for expressions
 /// ---------------------------------------------------------
 /// This parser handles the parsing of expressions in the language.
-/// It can parse boolean literals and if-else expressions.
+/// It can parse boolean literals, integer literals, binary operations, and if-else expressions.
+/// The order of parsing reflects precedence: binary ops > literals > if-else.
 ///
 /// # Arguments
 /// - `input`: A slice of tokens to parse.
@@ -17,7 +20,7 @@ type Tokens<'a> = &'a [Token];
 /// # Returns
 /// - `IResult<Tokens, Expr>`: A result containing the remaining tokens and the parsed expression.
 pub fn parse_expr(input: Tokens) -> IResult<Tokens, Expr> {
-    alt((parse_if_else, parse_bool)).parse(input)
+    alt((parse_if_else, parse_binary_op, parse_bool, parse_int)).parse(input)
 }
 
 /// ---------------------------------------------------------
@@ -73,6 +76,74 @@ fn parse_if_else(input: Tokens) -> IResult<Tokens, Expr> {
             else_branch: Box::new(else_branch),
         },
     ))
+}
+
+/// ---------------------------------------------------------
+/// Parser for integer literals
+/// ---------------------------------------------------------
+/// This parser handles parsing of integer literals.
+/// It matches a `Token::Integer` and wraps the value in `Expr::Int`.
+///
+/// # Arguments
+/// - `input`: A slice of tokens to parse.
+///
+/// # Returns
+/// - `IResult<Tokens, Expr>`: The remaining input and the parsed integer expression.
+fn parse_int(input: Tokens) -> IResult<Tokens, Expr> {
+    match input.split_first() {
+        Some((Token::Integer(n), rest)) => Ok((rest, Expr::Int(*n))),
+        _ => Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Tag,
+        ))),
+    }
+}
+
+/// ---------------------------------------------------------
+/// Parser for binary operations
+/// ---------------------------------------------------------
+/// This parser handles binary expressions like `1 + 2` or `3 * 4`.
+/// It parses a left-hand side expression, followed by a binary operator,
+/// and a right-hand side expression, producing an `Expr::BinaryOp`.
+///
+/// # Arguments
+/// - `input`: A slice of tokens to parse.
+///
+/// # Returns
+/// - `IResult<Tokens, Expr>`: The remaining input and the parsed binary operation.
+fn parse_binary_op(input: Tokens) -> IResult<Tokens, Expr> {
+    let (input, left) = parse_int(input)?; // we'll support parse_expr or parse_paren later
+    match input.split_first() {
+        Some((op_tok, rest)) => {
+            let op = match op_tok {
+                Token::Plus => BinOp::Add,
+                Token::Minus => BinOp::Sub,
+                Token::Star => BinOp::Mul,
+                Token::Slash => BinOp::Div,
+                _ => {
+                    return Err(nom::Err::Error(nom::error::Error::new(
+                        input,
+                        nom::error::ErrorKind::Tag,
+                    )));
+                }
+            };
+
+            let (rest, right) = parse_int(rest)?; // same here, eventually generalize
+
+            Ok((
+                rest,
+                Expr::BinaryOp {
+                    left: Box::new(left),
+                    op,
+                    right: Box::new(right),
+                },
+            ))
+        }
+        _ => Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Tag,
+        ))),
+    }
 }
 
 /// ---------------------------------------------------------
