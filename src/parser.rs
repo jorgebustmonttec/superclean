@@ -4,6 +4,7 @@ use crate::ast::BinOp;
 use crate::ast::Expr;
 use crate::token::Token;
 use nom::combinator::map;
+use nom::multi::fold_many0;
 
 type Tokens<'a> = &'a [Token];
 
@@ -20,7 +21,7 @@ type Tokens<'a> = &'a [Token];
 /// # Returns
 /// - `IResult<Tokens, Expr>`: A result containing the remaining tokens and the parsed expression.
 pub fn parse_expr(input: Tokens) -> IResult<Tokens, Expr> {
-    alt((parse_if_else, parse_binary_op, parse_bool, parse_int)).parse(input)
+    alt((parse_if_else, parse_add_sub)).parse(input)
 }
 
 /// ---------------------------------------------------------
@@ -100,50 +101,91 @@ fn parse_int(input: Tokens) -> IResult<Tokens, Expr> {
 }
 
 /// ---------------------------------------------------------
-/// Parser for binary operations
+/// Parses addition and subtraction expressions
 /// ---------------------------------------------------------
-/// This parser handles binary expressions like `1 + 2` or `3 * 4`.
-/// It parses a left-hand side expression, followed by a binary operator,
-/// and a right-hand side expression, producing an `Expr::BinaryOp`.
-///
-/// # Arguments
-/// - `input`: A slice of tokens to parse.
-///
-/// # Returns
-/// - `IResult<Tokens, Expr>`: The remaining input and the parsed binary operation.
-fn parse_binary_op(input: Tokens) -> IResult<Tokens, Expr> {
-    let (input, left) = parse_int(input)?; // we'll support parse_expr or parse_paren later
-    match input.split_first() {
-        Some((op_tok, rest)) => {
-            let op = match op_tok {
-                Token::Plus => BinOp::Add,
-                Token::Minus => BinOp::Sub,
-                Token::Star => BinOp::Mul,
-                Token::Slash => BinOp::Div,
-                _ => {
-                    return Err(nom::Err::Error(nom::error::Error::new(
-                        input,
-                        nom::error::ErrorKind::Tag,
-                    )));
-                }
-            };
+/// Handles expressions like `1 + 2 - 3`, respecting left-to-right associativity.
+fn parse_add_sub(mut input: Tokens) -> IResult<Tokens, Expr> {
+    let (mut input_, mut expr) = parse_mul_div(input)?;
 
-            let (rest, right) = parse_int(rest)?; // same here, eventually generalize
-
-            Ok((
-                rest,
-                Expr::BinaryOp {
-                    left: Box::new(left),
-                    op,
-                    right: Box::new(right),
-                },
-            ))
+    loop {
+        match input_.split_first() {
+            Some((Token::Plus, rest)) => {
+                let (rest, rhs) = parse_mul_div(rest)?;
+                expr = Expr::BinaryOp {
+                    left: Box::new(expr),
+                    op: BinOp::Add,
+                    right: Box::new(rhs),
+                };
+                input_ = rest;
+            }
+            Some((Token::Minus, rest)) => {
+                let (rest, rhs) = parse_mul_div(rest)?;
+                expr = Expr::BinaryOp {
+                    left: Box::new(expr),
+                    op: BinOp::Sub,
+                    right: Box::new(rhs),
+                };
+                input_ = rest;
+            }
+            _ => break,
         }
-        _ => Err(nom::Err::Error(nom::error::Error::new(
-            input,
-            nom::error::ErrorKind::Tag,
-        ))),
     }
+
+    Ok((input_, expr))
+}
+
+/// ---------------------------------------------------------
+/// Parses multiplication and division expressions
+/// ---------------------------------------------------------
+/// Handles expressions like `2 * 3 / 4`, respecting left-to-right associativity.
+fn parse_mul_div(mut input: Tokens) -> IResult<Tokens, Expr> {
+    let (mut input_, mut expr) = parse_primary(input)?;
+
+    loop {
+        match input_.split_first() {
+            Some((Token::Star, rest)) => {
+                let (rest, rhs) = parse_primary(rest)?;
+                expr = Expr::BinaryOp {
+                    left: Box::new(expr),
+                    op: BinOp::Mul,
+                    right: Box::new(rhs),
+                };
+                input_ = rest;
+            }
+            Some((Token::Slash, rest)) => {
+                let (rest, rhs) = parse_primary(rest)?;
+                expr = Expr::BinaryOp {
+                    left: Box::new(expr),
+                    op: BinOp::Div,
+                    right: Box::new(rhs),
+                };
+                input_ = rest;
+            }
+            _ => break,
+        }
+    }
+
+    Ok((input_, expr))
+}
+
+/// ---------------------------------------------------------
+/// Parses literals or parenthesized expressions
+/// ---------------------------------------------------------
+/// This is the base level of expression parsing, supporting
+/// integer literals, booleans, and expressions in parentheses.
+fn parse_primary(input: Tokens) -> IResult<Tokens, Expr> {
+    alt((parse_paren_expr, parse_bool, parse_int)).parse(input)
+}
+
+/// ---------------------------------------------------------
+/// Parses expressions inside parentheses
+/// ---------------------------------------------------------
+/// Matches a parenthesized expression like `(1 + 2)`.
+fn parse_paren_expr(input: Tokens) -> IResult<Tokens, Expr> {
+    let (input, _) = tag_token(Token::LParen)(input)?;
+    let (input, expr) = parse_expr(input)?;
+    let (input, _) = tag_token(Token::RParen)(input)?;
+    Ok((input, expr))
 }
 
 /// ---------------------------------------------------------
@@ -293,6 +335,70 @@ mod tests {
                     else_branch: Box::new(Expr::Bool(false)),
                 }),
                 else_branch: Box::new(Expr::Bool(false)),
+            }
+        );
+    }
+
+    #[test]
+    fn test_operator_precedence() {
+        use BinOp::*;
+        use Expr::*;
+
+        let tokens = vec![
+            Token::Integer(1),
+            Token::Plus,
+            Token::Integer(2),
+            Token::Star,
+            Token::Integer(3),
+        ];
+
+        let result = parse_expr(&tokens);
+        assert!(result.is_ok());
+        let (_, expr) = result.unwrap();
+
+        assert_eq!(
+            expr,
+            BinaryOp {
+                left: Box::new(Int(1)),
+                op: Add,
+                right: Box::new(BinaryOp {
+                    left: Box::new(Int(2)),
+                    op: Mul,
+                    right: Box::new(Int(3)),
+                })
+            }
+        );
+    }
+
+    #[test]
+    fn test_parentheses_override_precedence() {
+        use BinOp::*;
+        use Expr::*;
+
+        let tokens = vec![
+            Token::LParen,
+            Token::Integer(1),
+            Token::Plus,
+            Token::Integer(2),
+            Token::RParen,
+            Token::Star,
+            Token::Integer(3),
+        ];
+
+        let result = parse_expr(&tokens);
+        assert!(result.is_ok());
+        let (_, expr) = result.unwrap();
+
+        assert_eq!(
+            expr,
+            BinaryOp {
+                left: Box::new(BinaryOp {
+                    left: Box::new(Int(1)),
+                    op: Add,
+                    right: Box::new(Int(2)),
+                }),
+                op: Mul,
+                right: Box::new(Int(3)),
             }
         );
     }
