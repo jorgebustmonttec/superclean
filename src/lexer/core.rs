@@ -8,13 +8,14 @@ use crate::token::Token;
 
 use crate::lexer::comments::{lex_block_comment, lex_line_comment};
 use crate::lexer::delimiters::{
-    lex_colon, lex_comma, lex_lbrace, lex_lparen, lex_rbrace, lex_rparen, lex_semicolon,
+    lex_comma, lex_lbrace, lex_lbracket, lex_lparen, lex_rbrace, lex_rbracket, lex_rparen,
+    lex_semicolon,
 };
 use crate::lexer::keywords::lex_identifier_or_keyword;
 use crate::lexer::literals::{lex_int, lex_string};
 use crate::lexer::operators::{
-    lex_equal, lex_equal_equal, lex_greater, lex_greater_equal, lex_less, lex_less_equal,
-    lex_minus, lex_not_equal, lex_plus, lex_slash, lex_star,
+    lex_colon, lex_equal, lex_equal_equal, lex_greater, lex_greater_equal, lex_less,
+    lex_less_equal, lex_minus, lex_not_equal, lex_percent, lex_plus, lex_slash, lex_star,
 };
 
 /// Tries to parse a single token from the beginning of the input string.
@@ -56,6 +57,9 @@ fn lex_token(input: &str) -> IResult<&str, Token> {
         lex_rbrace,
         lex_comma,
         lex_semicolon,
+        lex_lbracket,
+        lex_rbracket,
+        lex_percent,
         lex_colon,
         lex_unrecognized, // ← ADD THIS LAST
     ));

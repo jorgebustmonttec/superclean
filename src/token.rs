@@ -1,7 +1,7 @@
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     // Keywords
-    Let, 
+    Let,
     Fun,
     Return,
     If,
@@ -21,7 +21,7 @@ pub enum Token {
     StringLiteral(String),
     LineComment(String),
     BlockComment(String),
-
+    Float(f64),
 
     // Operators
     Plus,
@@ -36,6 +36,7 @@ pub enum Token {
     Greater,
     GreaterEqual,
     Colon,
+    Percent,
 
     // Delimiters
     LParen,
@@ -44,6 +45,8 @@ pub enum Token {
     RBrace,
     Comma,
     Semicolon,
+    LBracket,
+    RBracket,
 
     // End of input
     EOF,

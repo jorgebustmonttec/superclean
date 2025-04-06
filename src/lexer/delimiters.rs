@@ -33,7 +33,12 @@ pub fn lex_semicolon(input: &str) -> IResult<&str, Token> {
     char(';').map(|_| Token::Semicolon).parse(input)
 }
 
-/// Lexes the `':'` character as a `Token::Colon`.
-pub fn lex_colon(input: &str) -> IResult<&str, Token> {
-    char(':').map(|_| Token::Colon).parse(input)
+/// Lexes the `'['` character as a `Token::LBracket`.
+pub fn lex_lbracket(input: &str) -> IResult<&str, Token> {
+    char('[').map(|_| Token::LBracket).parse(input)
+}
+
+/// Lexes the `']'` character as a `Token::RBracket`.
+pub fn lex_rbracket(input: &str) -> IResult<&str, Token> {
+    char(']').map(|_| Token::RBracket).parse(input)
 }

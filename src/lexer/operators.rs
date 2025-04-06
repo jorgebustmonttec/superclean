@@ -56,3 +56,13 @@ pub fn lex_greater(input: &str) -> IResult<&str, Token> {
 pub fn lex_equal(input: &str) -> IResult<&str, Token> {
     char('=').map(|_| Token::Equal).parse(input)
 }
+
+/// Lexes the '%' character as a `Token::Percent`.
+pub fn lex_percent(input: &str) -> IResult<&str, Token> {
+    char('%').map(|_| Token::Percent).parse(input)
+}
+
+/// Lexes the `':'` character as a `Token::Colon`.
+pub fn lex_colon(input: &str) -> IResult<&str, Token> {
+    char(':').map(|_| Token::Colon).parse(input)
+}

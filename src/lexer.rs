@@ -59,6 +59,8 @@ mod tests {
         assert_eq!(lex(">="), Ok(vec![Token::GreaterEqual]));
         assert_eq!(lex("<"), Ok(vec![Token::Less]));
         assert_eq!(lex(">"), Ok(vec![Token::Greater]));
+        assert_eq!(lex("="), Ok(vec![Token::Equal]));
+        assert_eq!(lex("%"), Ok(vec![Token::Percent]));
     }
 
     // Test lexing of a complex expression
@@ -79,7 +81,6 @@ mod tests {
             ])
         );
 
-        /*
         assert_eq!(
             lex("a == b != c <= d >= e < f > g"),
             Ok(vec![
@@ -98,7 +99,6 @@ mod tests {
                 Token::Identifier("g".to_string()),
             ])
         );
-        */
     }
 
     // Test lexing of delimiters
@@ -413,5 +413,37 @@ let y = @;
         //assert!(err.column > 0); // You can refine this later if needed
         assert_eq!(err.column, 9);
         assert!(err.message.contains("Unrecognized"));
+    }
+
+    // Test lexing of tuple
+    #[test]
+    fn test_lex_tuple() {
+        assert_eq!(
+            lex("(1, 2)"),
+            Ok(vec![
+                Token::LParen,
+                Token::Integer(1),
+                Token::Comma,
+                Token::Integer(2),
+                Token::RParen
+            ])
+        );
+    }
+
+    // Test lexing of List
+    #[test]
+    fn test_lex_list() {
+        assert_eq!(
+            lex("[1, 2, 3]"),
+            Ok(vec![
+                Token::LBracket,
+                Token::Integer(1),
+                Token::Comma,
+                Token::Integer(2),
+                Token::Comma,
+                Token::Integer(3),
+                Token::RBracket
+            ])
+        );
     }
 }
