@@ -14,8 +14,9 @@ use crate::lexer::delimiters::{
 use crate::lexer::keywords::lex_identifier_or_keyword;
 use crate::lexer::literals::{lex_float, lex_int, lex_string};
 use crate::lexer::operators::{
-    lex_colon, lex_equal, lex_equal_equal, lex_greater, lex_greater_equal, lex_less,
-    lex_less_equal, lex_minus, lex_not_equal, lex_percent, lex_plus, lex_slash, lex_star,
+    lex_and, lex_colon, lex_equal, lex_equal_equal, lex_greater, lex_greater_equal, lex_less,
+    lex_less_equal, lex_minus, lex_not, lex_not_equal, lex_or, lex_percent, lex_plus, lex_slash,
+    lex_star,
 };
 
 /// Tries to parse a single token from the beginning of the input string.
@@ -37,8 +38,11 @@ fn lex_token(input: &str) -> IResult<&str, Token> {
         lex_string,
         lex_equal_equal,
         lex_not_equal,
+        lex_not,
         lex_less_equal,
         lex_greater_equal,
+        lex_and,
+        lex_or,
         lex_equal,
         lex_plus,
     ));

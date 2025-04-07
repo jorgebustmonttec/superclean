@@ -14,6 +14,10 @@ pub enum Expr {
         op: BinOp,
         right: Box<Expr>,
     },
+    UnaryOp {
+        op: UnaryOp,
+        expr: Box<Expr>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -23,6 +27,20 @@ pub enum BinOp {
     Mul,
     Div,
     Mod,
+    And,
+    Or,
+    Equal,
+    NotEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum UnaryOp {
+    Neg,
+    Not,
 }
 
 #[derive(Debug, Clone, PartialEq)]

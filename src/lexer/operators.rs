@@ -66,3 +66,16 @@ pub fn lex_percent(input: &str) -> IResult<&str, Token> {
 pub fn lex_colon(input: &str) -> IResult<&str, Token> {
     char(':').map(|_| Token::Colon).parse(input)
 }
+
+/// Lexes the `&&` character as a `Token::And`.
+pub fn lex_and(input: &str) -> IResult<&str, Token> {
+    tag("&&").map(|_| Token::And).parse(input)
+}
+/// Lexes the `||` character as a `Token::Or`.
+pub fn lex_or(input: &str) -> IResult<&str, Token> {
+    tag("||").map(|_| Token::Or).parse(input)
+}
+/// Lexes the `!` character as a `Token::Not`.
+pub fn lex_not(input: &str) -> IResult<&str, Token> {
+    char('!').map(|_| Token::Not).parse(input)
+}

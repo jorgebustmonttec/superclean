@@ -468,4 +468,26 @@ let y = @;
             ])
         );
     }
+
+    // Test lexing logical operators
+    #[test]
+    fn test_lex_logical_operators() {
+        assert_eq!(lex("&&"), Ok(vec![Token::And]));
+        assert_eq!(lex("||"), Ok(vec![Token::Or]));
+        assert_eq!(lex("!"), Ok(vec![Token::Not]));
+    }
+    // Test lexing of a complex expression with logical operators
+    #[test]
+    fn test_lex_complex_expr_logical() {
+        assert_eq!(
+            lex("x && y || z"),
+            Ok(vec![
+                Token::Identifier("x".to_string()),
+                Token::And,
+                Token::Identifier("y".to_string()),
+                Token::Or,
+                Token::Identifier("z".to_string())
+            ])
+        );
+    }
 }

@@ -37,6 +37,9 @@ pub enum Token {
     GreaterEqual,
     Colon,
     Percent,
+    And,
+    Or,
+    Not,
 
     // Delimiters
     LParen,
