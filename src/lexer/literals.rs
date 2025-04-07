@@ -30,7 +30,7 @@ pub fn lex_float(input: &str) -> IResult<&str, Token> {
 ///
 /// Returns an error if the string is unterminated.
 pub fn lex_string(input: &str) -> IResult<&str, Token> {
-    println!("===> TRYING TO PARSE STRING from: {input:?}");
+    //println!("===> TRYING TO PARSE STRING from: {input:?}");
 
     let mut escaped = false;
     let mut result = String::new();
@@ -63,7 +63,7 @@ pub fn lex_string(input: &str) -> IResult<&str, Token> {
             escaped = true;
         } else if c == '"' {
             let rest = &input[j + 1..];
-            println!("===> STRING SUCCESSFULLY PARSED: {result:?}");
+            //println!("===> STRING SUCCESSFULLY PARSED: {result:?}");
             return Ok((rest, Token::StringLiteral(result)));
         } else {
             result.push(c);

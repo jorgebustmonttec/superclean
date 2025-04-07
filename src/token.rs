@@ -47,6 +47,7 @@ pub enum Token {
     Semicolon,
     LBracket,
     RBracket,
+    Newline,
 
     // End of input
     EOF,

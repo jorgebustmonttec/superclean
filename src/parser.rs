@@ -1,63 +1,137 @@
-use nom::{IResult, Parser, branch::alt};
+use nom::{IResult, Parser, branch::alt, error::ErrorKind};
 
-use crate::ast::Expr;
+use crate::ast::{BinOp, Expr};
 use crate::token::Token;
 
 type Tokens<'a> = &'a [Token];
 
-/// ---------------------------------------------------------
-/// Parser for expressions
-/// ---------------------------------------------------------
-/// This parser handles the parsing of expressions in the language.
-/// It can parse boolean literals and if-else expressions.
+/// Entry point for expression parsing. Dispatches to the appropriate expression parser.
 ///
 /// # Arguments
-/// - `input`: A slice of tokens to parse.
+/// - `input`: A slice of tokens.
 ///
 /// # Returns
-/// - `IResult<Tokens, Expr>`: A result containing the remaining tokens and the parsed expression.
+/// - `IResult<Tokens, Expr>`: Remaining tokens and parsed expression.
+/// Entry point for parsing any expression.
+/// This includes control flow (`if`), literals (bool, int, float),
+/// and binary math expressions.
+///
+/// # Arguments
+/// - `input`: A slice of tokens.
+///
+/// # Returns
+/// - `IResult<Tokens, Expr>`: The parsed expression and remaining tokens.
 pub fn parse_expr(input: Tokens) -> IResult<Tokens, Expr> {
-    alt((parse_if_else, parse_bool)).parse(input)
+    alt((
+        parse_if_else,
+        parse_add_sub,
+        parse_int,
+        parse_float,
+        parse_bool,
+    ))
+    .parse(input)
 }
 
-/// ---------------------------------------------------------
-/// Parser for boolean literals
-/// ---------------------------------------------------------
-/// This parser handles the parsing of boolean literals (`true` and `false`).
-/// It matches the tokens `Token::True` and `Token::False`
-/// and returns the corresponding `Expr::Bool` variant.
-///
-/// # Arguments
-/// - `input`: A slice of tokens to parse.
-///
-/// # Returns
-/// - `IResult<Tokens, Expr>`: A result containing the remaining tokens and the parsed boolean expression.
-/// If the input does not match either `true` or `false`, it returns an error.
+/// Parses addition and subtraction (lowest precedence)
+fn parse_add_sub(input: Tokens) -> IResult<Tokens, Expr> {
+    let (mut input, mut expr) = parse_mul_div_mod.parse(input)?;
+
+    loop {
+        let op = if let Some((Token::Plus, rest)) = input.split_first() {
+            input = rest;
+            Some(BinOp::Add)
+        } else if let Some((Token::Minus, rest)) = input.split_first() {
+            input = rest;
+            Some(BinOp::Sub)
+        } else {
+            break;
+        };
+
+        let (new_input, rhs) = parse_mul_div_mod.parse(input)?;
+        input = new_input;
+        expr = Expr::BinOp {
+            left: Box::new(expr),
+            op: op.unwrap(),
+            right: Box::new(rhs),
+        };
+    }
+
+    Ok((input, expr))
+}
+
+/// Parses multiplication, division, modulo (medium precedence)
+fn parse_mul_div_mod(input: Tokens) -> IResult<Tokens, Expr> {
+    let (mut input, mut expr) = parse_primary.parse(input)?;
+
+    loop {
+        let op = match input.split_first() {
+            Some((Token::Star, rest)) => {
+                input = rest;
+                Some(BinOp::Mul)
+            }
+            Some((Token::Slash, rest)) => {
+                input = rest;
+                Some(BinOp::Div)
+            }
+            Some((Token::Percent, rest)) => {
+                input = rest;
+                Some(BinOp::Mod)
+            }
+            _ => break,
+        };
+
+        let (new_input, rhs) = parse_primary.parse(input)?;
+        input = new_input;
+        expr = Expr::BinOp {
+            left: Box::new(expr),
+            op: op.unwrap(),
+            right: Box::new(rhs),
+        };
+    }
+
+    Ok((input, expr))
+}
+
+/// Parses primitive expressions like ints, floats, bools, or if-else
+fn parse_primary(input: Tokens) -> IResult<Tokens, Expr> {
+    alt((parse_if_else, parse_int, parse_float, parse_bool)).parse(input)
+}
+
+/// Parses integer literals
+fn parse_int(input: Tokens) -> IResult<Tokens, Expr> {
+    match input.split_first() {
+        Some((Token::Integer(n), rest)) => Ok((rest, Expr::Int(*n))),
+        _ => Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            ErrorKind::Tag,
+        ))),
+    }
+}
+
+/// Parses float literals
+fn parse_float(input: Tokens) -> IResult<Tokens, Expr> {
+    match input.split_first() {
+        Some((Token::Float(f), rest)) => Ok((rest, Expr::Float(*f))),
+        _ => Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            ErrorKind::Tag,
+        ))),
+    }
+}
+
+/// Parses boolean literals (`true` or `false`)
 fn parse_bool(input: Tokens) -> IResult<Tokens, Expr> {
     match input.split_first() {
         Some((Token::True, rest)) => Ok((rest, Expr::Bool(true))),
         Some((Token::False, rest)) => Ok((rest, Expr::Bool(false))),
         _ => Err(nom::Err::Error(nom::error::Error::new(
             input,
-            nom::error::ErrorKind::Tag,
+            ErrorKind::Tag,
         ))),
     }
 }
 
-/// ---------------------------------------------------------
-/// Parser for if-else expressions
-/// ---------------------------------------------------------
-/// This parser handles the parsing of if-else expressions.
-/// It matches the `if` keyword, followed by a condition expression,
-/// a `then` branch, an `else` keyword, and an `else` branch.
-/// It returns an `Expr::IfElse` variant containing the condition and branches.
-///
-/// # Arguments
-/// - `input`: A slice of tokens to parse.
-///
-/// # Returns
-/// - `IResult<Tokens, Expr>`: A result containing the remaining tokens and the parsed if-else expression.
-/// If the input does not match the expected structure, it returns an error.
+/// Parses `if cond { then } else { else }` expressions
 fn parse_if_else(input: Tokens) -> IResult<Tokens, Expr> {
     let (input, _) = tag_token(Token::If)(input)?;
     let (input, condition) = parse_expr(input)?;
@@ -75,44 +149,18 @@ fn parse_if_else(input: Tokens) -> IResult<Tokens, Expr> {
     ))
 }
 
-/// ---------------------------------------------------------
-/// Helper function to match a specific token
-/// ---------------------------------------------------------
-/// This function checks if the first token in the input matches the expected token.
-/// If it does, it returns the remaining tokens; otherwise, it returns an error.
-/// It is used to match specific keywords and symbols in the language.
-///
-/// # Arguments
-/// - `expected`: The expected token to match.
-/// - `input`: A slice of tokens to parse.
-///
-/// # Returns
-/// - `IResult<Tokens, Token>`: A result containing the remaining tokens and the matched token.
-/// If the input does not match the expected token, it returns an error.
+/// Matches a specific token
 fn tag_token(expected: Token) -> impl Fn(Tokens) -> IResult<Tokens, Token> {
     move |input: Tokens| match input.split_first() {
         Some((tok, rest)) if *tok == expected => Ok((rest, tok.clone())),
         _ => Err(nom::Err::Error(nom::error::Error::new(
             input,
-            nom::error::ErrorKind::Tag,
+            ErrorKind::Tag,
         ))),
     }
 }
 
-/// ---------------------------------------------------------
-/// Parser for block expressions
-/// ---------------------------------------------------------
-/// This parser handles the parsing of block expressions enclosed in braces (`{}`).
-/// It matches the opening brace, parses an expression inside the braces,
-/// and then matches the closing brace.
-/// It returns the parsed expression.
-///
-/// # Arguments
-/// - `input`: A slice of tokens to parse.
-///
-/// # Returns
-/// - `IResult<Tokens, Expr>`: A result containing the remaining tokens and the parsed block expression.
-/// If the input does not match the expected structure, it returns an error.
+/// Parses a block expression `{ expr }`
 fn parse_block_expr(input: Tokens) -> IResult<Tokens, Expr> {
     let (input, _) = tag_token(Token::LBrace)(input)?;
     let (input, expr) = parse_expr(input)?;
@@ -225,4 +273,7 @@ mod tests {
             }
         );
     }
+
+    // test for the following code:
+    //
 }

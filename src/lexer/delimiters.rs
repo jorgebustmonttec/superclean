@@ -42,3 +42,8 @@ pub fn lex_lbracket(input: &str) -> IResult<&str, Token> {
 pub fn lex_rbracket(input: &str) -> IResult<&str, Token> {
     char(']').map(|_| Token::RBracket).parse(input)
 }
+
+// Lexes the '\n' character as a `Token::Newline`.
+pub fn lex_newline(input: &str) -> IResult<&str, Token> {
+    char('\n').map(|_| Token::Newline).parse(input)
+}
