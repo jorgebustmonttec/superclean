@@ -12,22 +12,17 @@
 pub mod expr;
 pub mod stmt;
 
-use expr::parse_expr;
-use stmt::parse_stmt;
+pub use expr::parse_expr;
+pub use stmt::parse_stmt;
 
 use crate::ast::Stmt;
+/// Utility shared by expr/stmt
 use crate::token::Token;
-use nom::IResult;
+use nom::{IResult, error::ErrorKind};
 
 type Tokens<'a> = &'a [Token];
 
-/// ------------------------------------------------------------------
-/// Tag Token Parser
-/// ------------------------------------------------------------------
-/// #### Parses a specific token.
-/// This is used to match specific tokens in the input without consuming them
-/// and returning the remaining tokens.
-fn tag_token(expected: Token) -> impl Fn(Tokens) -> IResult<Tokens, Token> {
+pub fn tag_token(expected: Token) -> impl Fn(Tokens) -> IResult<Tokens, Token> {
     move |input: Tokens| match input.split_first() {
         Some((tok, rest)) if *tok == expected => Ok((rest, tok.clone())),
         _ => Err(nom::Err::Error(nom::error::Error::new(
@@ -37,12 +32,7 @@ fn tag_token(expected: Token) -> impl Fn(Tokens) -> IResult<Tokens, Token> {
     }
 }
 
-/// ------------------------------------------------------------------
-/// Block Expression Parser
-/// ------------------------------------------------------------------
-/// #### Parses block expressions.
-/// This is used to group expressions inside braces `{}`.
-fn parse_block_expr(input: Tokens) -> IResult<Tokens, Expr> {
+pub fn parse_block_expr(input: Tokens) -> IResult<Tokens, crate::ast::Expr> {
     let (input, _) = tag_token(Token::LBrace)(input)?;
     let (input, expr) = parse_expr(input)?;
     let (input, _) = tag_token(Token::RBrace)(input)?;
@@ -64,3 +54,5 @@ pub fn parse(tokens: Tokens) -> IResult<Tokens, Vec<Stmt>> {
 
     Ok((input, stmts))
 }
+
+// ========================= Tests =========================

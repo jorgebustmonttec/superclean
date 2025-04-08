@@ -52,10 +52,17 @@ pub enum UnaryOp {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
     Expr(Expr),
+    Let {
+        name: String,
+        ty: Option<Type>, // ← was just `Type` before
+        expr: Expr,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
+    Int,
     Bool,
-    Unit, // Add more later
+    String,
+    Unit,
 }

@@ -1,9 +1,8 @@
-use crate::ast::{Expr, Stmt};
-use crate::parser::expr::parse_expr;
+use crate::ast::{Stmt, Type};
+use crate::parser::Tokens;
+use crate::parser::{parse_expr, tag_token};
 use crate::token::Token;
-use nom::{IResult, Parser, branch::alt};
-
-type Tokens<'a> = &'a [Token];
+use nom::{IResult, Parser, branch::alt, error::ErrorKind};
 
 /// ------------------------------------------------------------------
 /// Statement Parser
@@ -21,11 +20,11 @@ pub fn parse_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
 fn parse_let_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
     let (input, _) = tag_token(Token::Let)(input)?;
 
-    let (input, name_token) = input
-        .split_first()
+    let token = input
+        .first()
         .ok_or_else(|| nom::Err::Error(nom::error::Error::new(input, ErrorKind::Tag)))?;
 
-    let name = if let Token::Identifier(name) = name_token {
+    let name = if let Token::Identifier(name) = token {
         name.clone()
     } else {
         return Err(nom::Err::Error(nom::error::Error::new(
@@ -33,6 +32,7 @@ fn parse_let_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
             ErrorKind::Tag,
         )));
     };
+
     let mut input = &input[1..];
 
     let (new_input, ty) = if let Some((Token::Colon, rest)) = input.split_first() {
@@ -74,5 +74,34 @@ fn parse_type(input: Tokens) -> IResult<Tokens, Type> {
             input,
             ErrorKind::Tag,
         ))),
+    }
+}
+
+// ============================== Tests ==============================
+
+#[cfg(test)]
+mod stmt_ests {
+    use super::*;
+    use crate::lexer::lex;
+    use crate::token::Token;
+
+    #[test]
+    fn test_parse_let_stmt() {
+        let input = vec![
+            Token::Let,
+            Token::Identifier("x".to_string()),
+            Token::Colon,
+            Token::IntType,
+            Token::Equal,
+            Token::Integer(5),
+            Token::Semicolon,
+        ];
+        let expected = Stmt::Let {
+            name: "x".to_string(),
+            ty: Some(Type::Int),
+            expr: crate::ast::Expr::Int(5),
+        };
+        let result = parse_stmt(&input).unwrap();
+        assert_eq!(result.1, expected);
     }
 }

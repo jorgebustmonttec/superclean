@@ -1,4 +1,5 @@
 use crate::ast::{BinOp, Expr, UnaryOp};
+use crate::parser::{parse_block_expr, tag_token};
 use crate::token::Token;
 use nom::{IResult, Parser, branch::alt, error::ErrorKind};
 
