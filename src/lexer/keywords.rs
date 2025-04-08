@@ -19,6 +19,8 @@ pub fn lex_identifier_or_keyword(input: &str) -> IResult<&str, Token> {
     ident_parser
         .map(|word| match word.as_str() {
             "let" => Token::Let,
+            "var" => Token::Var,
+            "const" => Token::Const,
             "fun" => Token::Fun,
             "return" => Token::Return,
             "if" => Token::If,

@@ -7,7 +7,7 @@ pub enum Expr {
     IfElse {
         condition: Box<Expr>,
         then_branch: Box<Expr>,
-        else_branch: Box<Expr>,
+        else_branch: Option<Box<Expr>>,
     },
     BinOp {
         left: Box<Expr>,

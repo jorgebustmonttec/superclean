@@ -6,3 +6,11 @@ edition = "2024"
 [dependencies]
 nom = "8.0.0"
 rustyline = "15"
+
+[lib]
+name = "superclean"
+path = "src/lib.rs"
+
+[[bin]]
+name = "superclean-run"
+path = "src/main.rs"

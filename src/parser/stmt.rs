@@ -82,26 +82,50 @@ fn parse_type(input: Tokens) -> IResult<Tokens, Type> {
 #[cfg(test)]
 mod stmt_ests {
     use super::*;
-    use crate::lexer::lex;
+    //use crate::lexer::lex;
     use crate::token::Token;
 
-    #[test]
-    fn test_parse_let_stmt() {
-        let input = vec![
-            Token::Let,
-            Token::Identifier("x".to_string()),
-            Token::Colon,
-            Token::IntType,
-            Token::Equal,
-            Token::Integer(5),
-            Token::Semicolon,
-        ];
-        let expected = Stmt::Let {
-            name: "x".to_string(),
-            ty: Some(Type::Int),
-            expr: crate::ast::Expr::Int(5),
-        };
-        let result = parse_stmt(&input).unwrap();
-        assert_eq!(result.1, expected);
+    mod let_stmt {
+        use super::*;
+
+        // testing let x: Int = 5;
+        #[test]
+        fn test_parse_let_stmt() {
+            let input = vec![
+                Token::Let,
+                Token::Identifier("x".to_string()),
+                Token::Colon,
+                Token::IntType,
+                Token::Equal,
+                Token::Integer(5),
+                Token::Semicolon,
+            ];
+            let expected = Stmt::Let {
+                name: "x".to_string(),
+                ty: Some(Type::Int),
+                expr: crate::ast::Expr::Int(5),
+            };
+            let result = parse_stmt(&input).unwrap();
+            assert_eq!(result.1, expected);
+        }
+
+        // testing let x = 5; (without type)
+        #[test]
+        fn test_parse_let_stmt_without_type() {
+            let input = vec![
+                Token::Let,
+                Token::Identifier("x".to_string()),
+                Token::Equal,
+                Token::Integer(5),
+                Token::Semicolon,
+            ];
+            let expected = Stmt::Let {
+                name: "x".to_string(),
+                ty: None,
+                expr: crate::ast::Expr::Int(5),
+            };
+            let result = parse_stmt(&input).unwrap();
+            assert_eq!(result.1, expected);
+        }
     }
 }

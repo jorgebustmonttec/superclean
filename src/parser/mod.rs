@@ -47,7 +47,9 @@ pub fn parse(tokens: Tokens) -> IResult<Tokens, Vec<Stmt>> {
     let mut stmts = Vec::new();
 
     while !input.is_empty() {
+        println!("\n[parse] Input before stmt parse: {:#?}", input);
         let (rest, stmt) = parse_stmt(input)?;
+        println!("[parse] Parsed statement: {:#?}", stmt);
         stmts.push(stmt);
         input = rest;
     }
@@ -56,3 +58,112 @@ pub fn parse(tokens: Tokens) -> IResult<Tokens, Vec<Stmt>> {
 }
 
 // ========================= Tests =========================
+
+#[cfg(test)]
+mod parser_tests {
+    use super::*;
+    use crate::ast::BinOp;
+    use crate::ast::Expr;
+    use crate::lexer::lex;
+    //use crate::token::Token;
+
+    #[test]
+    fn mock_code_test1() {
+        let code = " if true {
+                if (false || true) {
+                    1 + 2 * 3
+                } else {
+                    4 / 2
+                }
+                } else {
+                    5 % 2
+                }";
+        let tokens = lex(code).unwrap();
+        let result = parse_expr(&tokens);
+        assert!(result.is_ok());
+        let (remaining, expr) = result.unwrap();
+        assert_eq!(remaining, &[]);
+        assert_eq!(
+            expr,
+            Expr::IfElse {
+                condition: Box::new(Expr::Bool(true)),
+                then_branch: Box::new(Expr::IfElse {
+                    condition: Box::new(Expr::BinOp {
+                        left: Box::new(Expr::Bool(false)),
+                        op: BinOp::Or,
+                        right: Box::new(Expr::Bool(true)),
+                    }),
+                    then_branch: Box::new(Expr::BinOp {
+                        left: Box::new(Expr::Int(1)),
+                        op: BinOp::Add,
+                        right: Box::new(Expr::BinOp {
+                            left: Box::new(Expr::Int(2)),
+                            op: BinOp::Mul,
+                            right: Box::new(Expr::Int(3)),
+                        }),
+                    }),
+                    else_branch: Some(Box::new(Expr::BinOp {
+                        left: Box::new(Expr::Int(4)),
+                        op: BinOp::Div,
+                        right: Box::new(Expr::Int(2)),
+                    })),
+                }),
+                else_branch: Some(Box::new(Expr::BinOp {
+                    left: Box::new(Expr::Int(5)),
+                    op: BinOp::Mod,
+                    right: Box::new(Expr::Int(2)),
+                })),
+            }
+        );
+    }
+
+    #[test]
+    fn mock_code_test2() {
+        let code = "
+        let x: Int = 5;
+
+        let y = 10;
+
+        let z = x + y;
+        let result = z * 2;
+        ";
+        let tokens = lex(code).unwrap();
+        let result = parse(&tokens);
+        assert!(result.is_ok());
+        let (remaining, stmts) = result.unwrap();
+        assert_eq!(remaining, &[]);
+        assert_eq!(
+            stmts,
+            vec![
+                Stmt::Let {
+                    name: "x".to_string(),
+                    ty: Some(crate::ast::Type::Int),
+                    expr: Expr::Int(5),
+                },
+                Stmt::Let {
+                    name: "y".to_string(),
+                    ty: None,
+                    expr: Expr::Int(10),
+                },
+                Stmt::Let {
+                    name: "z".to_string(),
+                    ty: None,
+                    expr: Expr::BinOp {
+                        left: Box::new(Expr::Variable("x".to_string())),
+                        op: BinOp::Add,
+                        right: Box::new(Expr::Variable("y".to_string())),
+                    },
+                },
+                Stmt::Let {
+                    name: "result".to_string(),
+                    ty: None,
+                    expr: Expr::BinOp {
+                        left: Box::new(Expr::Variable("z".to_string())),
+                        op: BinOp::Mul,
+                        right: Box::new(Expr::Int(2)),
+                    },
+                },
+            ]
+        );
+    }
+}

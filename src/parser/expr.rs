@@ -171,15 +171,20 @@ fn parse_if_else(input: Tokens) -> IResult<Tokens, Expr> {
     let (input, _) = tag_token(Token::If)(input)?;
     let (input, condition) = parse_expr(input)?;
     let (input, then_branch) = parse_block_expr(input)?;
-    let (input, _) = tag_token(Token::Else)(input)?;
-    let (input, else_branch) = parse_block_expr(input)?;
+
+    let (input, else_branch) = if let Some((Token::Else, rest)) = input.split_first() {
+        let (input, block) = parse_block_expr(&rest)?;
+        (input, Some(Box::new(block)))
+    } else {
+        (input, None)
+    };
 
     Ok((
         input,
         Expr::IfElse {
             condition: Box::new(condition),
             then_branch: Box::new(then_branch),
-            else_branch: Box::new(else_branch),
+            else_branch, // already an Option<Box<Expr>>, no Box::new needed
         },
     ))
 }
@@ -329,83 +334,8 @@ fn parse_identifier(input: Tokens) -> IResult<Tokens, Expr> {
 #[cfg(test)]
 mod expr_tests {
     use super::*;
-    use crate::lexer::lex;
+    //use crate::lexer::lex;
     use crate::token::Token;
-
-    mod large_tests {
-        use super::*;
-
-        // ========================== Large tests ==============================
-        // These tests are designed to cover multiple cases in a single test case,
-        // and are meant to emulate snippets of code that would be parsed in a
-        // real-world scenario.
-        //
-        // as opposed to other tests, these will use the 'lex' function to
-        // simulate the pipeline from text to tokens to AST.
-        //
-        // More tests will be added as the parser is developed further.
-
-        // Mock code test 1
-        // Test for a complex expression:
-        //if true{
-        //    if (false || true) {
-        //        1 + 2 * 3
-        //    } else {
-        //        4 / 2
-        //    }
-        //} else {
-        //    5 % 2
-        //}
-        #[test]
-        fn mock_code_test1() {
-            let code = " if true {
-                if (false || true) {
-                    1 + 2 * 3
-                } else {
-                    4 / 2
-                }
-                } else {
-                    5 % 2
-                }";
-            let tokens = lex(code).unwrap();
-            let result = parse_expr(&tokens);
-            assert!(result.is_ok());
-            let (remaining, expr) = result.unwrap();
-            assert_eq!(remaining, &[]);
-            assert_eq!(
-                expr,
-                Expr::IfElse {
-                    condition: Box::new(Expr::Bool(true)),
-                    then_branch: Box::new(Expr::IfElse {
-                        condition: Box::new(Expr::BinOp {
-                            left: Box::new(Expr::Bool(false)),
-                            op: BinOp::Or,
-                            right: Box::new(Expr::Bool(true)),
-                        }),
-                        then_branch: Box::new(Expr::BinOp {
-                            left: Box::new(Expr::Int(1)),
-                            op: BinOp::Add,
-                            right: Box::new(Expr::BinOp {
-                                left: Box::new(Expr::Int(2)),
-                                op: BinOp::Mul,
-                                right: Box::new(Expr::Int(3)),
-                            }),
-                        }),
-                        else_branch: Box::new(Expr::BinOp {
-                            left: Box::new(Expr::Int(4)),
-                            op: BinOp::Div,
-                            right: Box::new(Expr::Int(2)),
-                        }),
-                    }),
-                    else_branch: Box::new(Expr::BinOp {
-                        left: Box::new(Expr::Int(5)),
-                        op: BinOp::Mod,
-                        right: Box::new(Expr::Int(2)),
-                    }),
-                }
-            );
-        }
-    }
 
     mod boolean_literal_tests {
         use super::*;
@@ -430,6 +360,7 @@ mod expr_tests {
 
     mod if_else_tests {
         use super::*;
+        use crate::lexer::lex;
 
         // ========================== If-Else Expression ==========================
 
@@ -462,7 +393,7 @@ mod expr_tests {
                 Expr::IfElse {
                     condition: Box::new(Expr::Bool(true)),
                     then_branch: Box::new(Expr::Bool(true)),
-                    else_branch: Box::new(Expr::Bool(false)),
+                    else_branch: Some(Box::new(Expr::Bool(false))),
                 }
             );
         }
@@ -506,11 +437,33 @@ mod expr_tests {
                     then_branch: Box::new(Expr::IfElse {
                         condition: Box::new(Expr::Bool(false)),
                         then_branch: Box::new(Expr::Bool(true)),
-                        else_branch: Box::new(Expr::Bool(false)),
+                        else_branch: Some(Box::new(Expr::Bool(false))),
                     }),
-                    else_branch: Box::new(Expr::Bool(false)),
+                    else_branch: Some(Box::new(Expr::Bool(false))),
                 }
             );
+        }
+
+        // Teste for if expression with no else branch
+        #[test]
+        fn test_parse_if_no_else() {
+            let code = "
+            if true{
+                true
+            }";
+            let tokens = lex(code).unwrap();
+            let result = parse_expr(&tokens);
+            assert!(result.is_ok());
+            let (remaining, expr) = result.unwrap();
+            assert_eq!(remaining, &[]);
+            assert_eq!(
+                expr,
+                Expr::IfElse {
+                    condition: Box::new(Expr::Bool(true)),
+                    then_branch: (Box::new(Expr::Bool(true))),
+                    else_branch: (None)
+                }
+            )
         }
     }
 
@@ -550,6 +503,7 @@ mod expr_tests {
 
     mod arithmetic_tests {
         use super::*;
+        //use crate::lexer::lex;
 
         // ========================== Arithmetic tests ==========================
 
@@ -914,7 +868,7 @@ mod expr_tests {
                     expr: Box::new(Expr::IfElse {
                         condition: Box::new(Expr::Bool(true)),
                         then_branch: Box::new(Expr::Int(1)),
-                        else_branch: Box::new(Expr::Int(0)),
+                        else_branch: Some(Box::new(Expr::Int(0))),
                     }),
                 }
             );
@@ -982,6 +936,7 @@ mod expr_tests {
 
     mod comparison_operator_tests {
         use super::*;
+        use crate::lexer::lex;
 
         // =========================== Comparison Operators ==========================
 
@@ -1041,6 +996,65 @@ mod expr_tests {
                 }
             );
         }
+
+        //test for complex code snippet involving comparison operators
+        //code:
+        // if (x == 1 || y != 2) {
+        //     true
+        // } else {
+        //     if x < y {
+        //         false
+        //     } else {
+        //         true
+        //     }
+        // }
+        #[test]
+        fn test_parse_complex_comparison() {
+            let code = "
+            if x == 1 || y != 2 {
+                true
+            } else {
+                if x < y {
+                    false
+                } else {
+                    true
+                }
+            }
+            ";
+            let tokens = lex(code).unwrap();
+            let result = parse_expr(&tokens);
+            assert!(result.is_ok());
+            let (remaining, expr) = result.unwrap();
+            assert_eq!(remaining, &[]);
+            assert_eq!(
+                expr,
+                Expr::IfElse {
+                    condition: Box::new(Expr::BinOp {
+                        left: Box::new(Expr::BinOp {
+                            left: Box::new(Expr::Variable("x".to_string())),
+                            op: BinOp::Equal,
+                            right: Box::new(Expr::Int(1)),
+                        }),
+                        op: BinOp::Or,
+                        right: Box::new(Expr::BinOp {
+                            left: Box::new(Expr::Variable("y".to_string())),
+                            op: BinOp::NotEqual,
+                            right: Box::new(Expr::Int(2)),
+                        }),
+                    }),
+                    then_branch: Box::new(Expr::Bool(true)),
+                    else_branch: Some(Box::new(Expr::IfElse {
+                        condition: Box::new(Expr::BinOp {
+                            left: Box::new(Expr::Variable("x".to_string())),
+                            op: BinOp::Less,
+                            right: Box::new(Expr::Variable("y".to_string())),
+                        }),
+                        then_branch: Box::new(Expr::Bool(false)),
+                        else_branch: Some(Box::new(Expr::Bool(true))),
+                    })),
+                }
+            );
+        }
     }
 
     mod string_literal_tests {
@@ -1091,6 +1105,26 @@ mod expr_tests {
             let tokens = vec![Token::Identifier("foo_bar".to_string())];
             let result = parse_expr(&tokens).unwrap().1;
             assert_eq!(result, Expr::Variable("foo_bar".to_string()));
+        }
+    }
+
+    mod error_tests {
+        use super::*;
+        use crate::lexer::lex;
+
+        // =========================== Error Handling ==========================
+
+        #[test]
+        fn test_parse_incomplete_if_else() {
+            let code = "if true {";
+            let tokens = lex(code).unwrap();
+            let result = parse_expr(&tokens);
+            assert!(result.is_err());
+            if let Err(nom::Err::Error(_)) = result {
+                // Expected error
+            } else {
+                panic!("Expected an error, but got: {:?}", result);
+            }
         }
     }
 }
