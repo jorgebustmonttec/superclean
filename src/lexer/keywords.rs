@@ -28,6 +28,7 @@ pub fn lex_identifier_or_keyword(input: &str) -> IResult<&str, Token> {
             "true" => Token::True,
             "false" => Token::False,
             "Int" => Token::IntType,
+            "Float" => Token::FloatType,
             "Bool" => Token::BoolType,
             "String" => Token::StringType,
             "Unit" => Token::UnitType,

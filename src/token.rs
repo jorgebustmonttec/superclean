@@ -2,6 +2,8 @@
 pub enum Token {
     // Keywords
     Let,
+    Var,
+    Const,
     Fun,
     Return,
     If,
@@ -14,6 +16,7 @@ pub enum Token {
     BoolType,
     StringType,
     UnitType,
+    FloatType,
 
     // Identifiers and literals
     Identifier(String),

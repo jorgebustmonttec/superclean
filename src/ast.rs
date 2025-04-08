@@ -18,6 +18,12 @@ pub enum Expr {
         op: UnaryOp,
         expr: Box<Expr>,
     },
+    String(String),
+    Variable(String),
+    Call {
+        function: Box<Expr>,
+        args: Vec<Expr>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
