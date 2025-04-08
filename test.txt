@@ -1,9 +1,6 @@
-if x == 1 || y != 2 {
+let x: Int = 42;
+if x < 100 {
     true
 } else {
-    if x < y {
-        false
-    } else {
-        true
-    }
-}
+    false
+};
