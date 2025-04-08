@@ -1,7 +1,6 @@
-use nom::{IResult, Parser, branch::alt, error::ErrorKind};
-
 use crate::ast::{BinOp, Expr, UnaryOp};
 use crate::token::Token;
+use nom::{IResult, Parser, branch::alt, error::ErrorKind};
 
 type Tokens<'a> = &'a [Token];
 
@@ -185,34 +184,6 @@ fn parse_if_else(input: Tokens) -> IResult<Tokens, Expr> {
 }
 
 /// ------------------------------------------------------------------
-/// Tag Token Parser
-/// ------------------------------------------------------------------
-/// #### Parses a specific token.
-/// This is used to match specific tokens in the input without consuming them
-/// and returning the remaining tokens.
-fn tag_token(expected: Token) -> impl Fn(Tokens) -> IResult<Tokens, Token> {
-    move |input: Tokens| match input.split_first() {
-        Some((tok, rest)) if *tok == expected => Ok((rest, tok.clone())),
-        _ => Err(nom::Err::Error(nom::error::Error::new(
-            input,
-            ErrorKind::Tag,
-        ))),
-    }
-}
-
-/// ------------------------------------------------------------------
-/// Block Expression Parser
-/// ------------------------------------------------------------------
-/// #### Parses block expressions.
-/// This is used to group expressions inside braces `{}`.
-fn parse_block_expr(input: Tokens) -> IResult<Tokens, Expr> {
-    let (input, _) = tag_token(Token::LBrace)(input)?;
-    let (input, expr) = parse_expr(input)?;
-    let (input, _) = tag_token(Token::RBrace)(input)?;
-    Ok((input, expr))
-}
-
-/// ------------------------------------------------------------------
 /// Logical OR Parser
 /// ------------------------------------------------------------------
 /// #### Parses logical OR (`||`) expressions. Lowest precedence.
@@ -355,7 +326,7 @@ fn parse_identifier(input: Tokens) -> IResult<Tokens, Expr> {
 // ======================== Tests =========================
 
 #[cfg(test)]
-mod tests {
+mod expr_tests {
     use super::*;
     use crate::lexer::lex;
     use crate::token::Token;
