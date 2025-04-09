@@ -67,11 +67,18 @@ pub fn parse(tokens: Tokens) -> IResult<Tokens, Vec<Stmt>> {
     let mut stmts = Vec::new();
 
     while !input.is_empty() {
+        input = skip_ignored(input); // ← Skip comments/whitespace/newlines
+
+        if input.is_empty() {
+            break;
+        }
+
         println!("\n[parse] Input before stmt parse: {:#?}", input);
         let (rest, stmt) = parse_stmt(input)?;
         println!("[parse] Parsed statement: {:#?}", stmt);
+
         stmts.push(stmt);
-        input = rest;
+        input = skip_ignored(rest); // ← Skip again after parsing a stmt
     }
 
     Ok((input, stmts))

@@ -27,11 +27,13 @@ pub fn parse_expr(input: Tokens) -> IResult<Tokens, Expr> {
 /// ------------------------------------------------------------------
 /// #### Parses logical OR (`||`) expressions. Lowest precedence.
 fn parse_logical_or(input: Tokens) -> IResult<Tokens, Expr> {
+    let mut input = skip_ignored(input);
     let (mut input, mut expr) = parse_logical_and.parse(input)?;
 
     loop {
+        input = skip_ignored(input);
         if let Some((Token::Or, rest)) = input.split_first() {
-            input = rest;
+            input = skip_ignored(rest);
             let (new_input, rhs) = parse_logical_and.parse(input)?;
             input = new_input;
             expr = Expr::BinOp {
@@ -52,11 +54,13 @@ fn parse_logical_or(input: Tokens) -> IResult<Tokens, Expr> {
 /// ------------------------------------------------------------------
 /// #### Parses logical AND (`&&`) expressions. Higher than OR.
 fn parse_logical_and(input: Tokens) -> IResult<Tokens, Expr> {
+    let mut input = skip_ignored(input);
     let (mut input, mut expr) = parse_comparison.parse(input)?;
 
     loop {
+        input = skip_ignored(input);
         if let Some((Token::And, rest)) = input.split_first() {
-            input = rest;
+            input = skip_ignored(rest);
             let (new_input, rhs) = parse_comparison.parse(input)?;
             input = new_input;
             expr = Expr::BinOp {
@@ -77,9 +81,11 @@ fn parse_logical_and(input: Tokens) -> IResult<Tokens, Expr> {
 /// ------------------------------------------------------------------
 /// #### Parses comparison expressions: ==, !=, <, <=, >, >=
 fn parse_comparison(input: Tokens) -> IResult<Tokens, Expr> {
+    let mut input = skip_ignored(input);
     let (mut input, mut expr) = parse_add_sub.parse(input)?;
 
     loop {
+        input = skip_ignored(input);
         let (op, rest) = match input.split_first() {
             Some((Token::EqualEqual, r)) => (Some(BinOp::Equal), r),
             Some((Token::NotEqual, r)) => (Some(BinOp::NotEqual), r),
@@ -90,7 +96,7 @@ fn parse_comparison(input: Tokens) -> IResult<Tokens, Expr> {
             _ => break,
         };
 
-        input = rest;
+        input = skip_ignored(rest);
         let (new_input, rhs) = parse_add_sub.parse(input)?;
         input = new_input;
         expr = Expr::BinOp {
@@ -109,9 +115,11 @@ fn parse_comparison(input: Tokens) -> IResult<Tokens, Expr> {
 /// #### Parses addition and subtraction expressions. Has low precedence
 /// and is chained with multiplication and division (which has higher precedence).
 fn parse_add_sub(input: Tokens) -> IResult<Tokens, Expr> {
+    let mut input = skip_ignored(input);
     let (mut input, mut expr) = parse_mul_div_mod.parse(input)?;
 
     loop {
+        input = skip_ignored(input);
         let op = if let Some((Token::Plus, rest)) = input.split_first() {
             input = rest;
             Some(BinOp::Add)
@@ -122,6 +130,7 @@ fn parse_add_sub(input: Tokens) -> IResult<Tokens, Expr> {
             break;
         };
 
+        input = skip_ignored(input);
         let (new_input, rhs) = parse_mul_div_mod.parse(input)?;
         input = new_input;
         expr = Expr::BinOp {
@@ -139,9 +148,11 @@ fn parse_add_sub(input: Tokens) -> IResult<Tokens, Expr> {
 /// ------------------------------------------------------------------
 /// #### Parses multiplication, division, and modulo operations. Has medium precedence.
 fn parse_mul_div_mod(input: Tokens) -> IResult<Tokens, Expr> {
+    let mut input = skip_ignored(input);
     let (mut input, mut expr) = parse_unary.parse(input)?;
 
     loop {
+        input = skip_ignored(input);
         let op = match input.split_first() {
             Some((Token::Star, rest)) => {
                 input = rest;
@@ -158,6 +169,7 @@ fn parse_mul_div_mod(input: Tokens) -> IResult<Tokens, Expr> {
             _ => break,
         };
 
+        input = skip_ignored(input);
         let (new_input, rhs) = parse_unary.parse(input)?;
         input = new_input;
         expr = Expr::BinOp {
@@ -171,10 +183,45 @@ fn parse_mul_div_mod(input: Tokens) -> IResult<Tokens, Expr> {
 }
 
 /// ------------------------------------------------------------------
+/// Logical NOT and Unary Minus Parser
+/// ------------------------------------------------------------------
+/// #### Parses unary expressions like `-x` or `!x`.
+/// `-` becomes UnaryOp::Neg and `!` becomes UnaryOp::Not.
+fn parse_unary(input: Tokens) -> IResult<Tokens, Expr> {
+    let input = skip_ignored(input);
+    match input.split_first() {
+        Some((Token::Minus, rest)) => {
+            let rest = skip_ignored(rest);
+            let (input, expr) = parse_unary(rest)?;
+            Ok((
+                input,
+                Expr::UnaryOp {
+                    op: UnaryOp::Neg,
+                    expr: Box::new(expr),
+                },
+            ))
+        }
+        Some((Token::Not, rest)) => {
+            let rest = skip_ignored(rest);
+            let (input, expr) = parse_unary(rest)?;
+            Ok((
+                input,
+                Expr::UnaryOp {
+                    op: UnaryOp::Not,
+                    expr: Box::new(expr),
+                },
+            ))
+        }
+        _ => parse_primary(input),
+    }
+}
+
+/// ------------------------------------------------------------------
 /// Primary Expression Parser
 /// ------------------------------------------------------------------
 /// #### Parses primary expressions. This includes literals and parenthesized expressions.
 fn parse_primary(input: Tokens) -> IResult<Tokens, Expr> {
+    let input = skip_ignored(input);
     alt((
         parse_parens,
         parse_if_else,
@@ -193,10 +240,46 @@ fn parse_primary(input: Tokens) -> IResult<Tokens, Expr> {
 /// #### Parses parenthesized expressions. This is used to group expressions.
 /// Parses parentheses on either side and returns the expression inside.
 fn parse_parens(input: Tokens) -> IResult<Tokens, Expr> {
+    let input = skip_ignored(input);
     let (input, _) = tag_token(Token::LParen)(input)?;
+    let input = skip_ignored(input);
     let (input, expr) = parse_expr(input)?;
+    let input = skip_ignored(input);
     let (input, _) = tag_token(Token::RParen)(input)?;
     Ok((input, expr))
+}
+
+/// ------------------------------------------------------------------
+/// If-Else Parser
+/// ------------------------------------------------------------------
+/// #### Parses if-else expressions.
+/// uses the `parse_expr` function to parse the condition and branches.
+/// The branches are expected to be block expressions.
+fn parse_if_else(input: Tokens) -> IResult<Tokens, Expr> {
+    let input = skip_ignored(input);
+    let (input, _) = tag_token(Token::If)(input)?;
+    let input = skip_ignored(input);
+    let (input, condition) = parse_expr(input)?;
+    let input = skip_ignored(input);
+    let (input, then_branch) = parse_block_expr(input)?;
+    let input = skip_ignored(input);
+
+    let (input, else_branch) = if let Some((Token::Else, rest)) = input.split_first() {
+        let input = skip_ignored(&rest);
+        let (input, block) = parse_block_expr(input)?;
+        (input, Some(Box::new(block)))
+    } else {
+        (input, None)
+    };
+
+    Ok((
+        input,
+        Expr::IfElse {
+            condition: Box::new(condition),
+            then_branch: Box::new(then_branch),
+            else_branch,
+        },
+    ))
 }
 
 /// ------------------------------------------------------------------
@@ -204,6 +287,7 @@ fn parse_parens(input: Tokens) -> IResult<Tokens, Expr> {
 /// ------------------------------------------------------------------
 /// #### Parses integer literals.
 fn parse_int(input: Tokens) -> IResult<Tokens, Expr> {
+    let input = skip_ignored(input);
     match input.split_first() {
         Some((Token::Integer(n), rest)) => Ok((rest, Expr::Int(*n))),
         _ => Err(nom::Err::Error(nom::error::Error::new(
@@ -218,6 +302,7 @@ fn parse_int(input: Tokens) -> IResult<Tokens, Expr> {
 /// ------------------------------------------------------------------
 /// #### Parses float literals.
 fn parse_float(input: Tokens) -> IResult<Tokens, Expr> {
+    let input = skip_ignored(input);
     match input.split_first() {
         Some((Token::Float(f), rest)) => Ok((rest, Expr::Float(*f))),
         _ => Err(nom::Err::Error(nom::error::Error::new(
@@ -232,6 +317,7 @@ fn parse_float(input: Tokens) -> IResult<Tokens, Expr> {
 /// ------------------------------------------------------------------
 /// #### Parses boolean literals.
 fn parse_bool(input: Tokens) -> IResult<Tokens, Expr> {
+    let input = skip_ignored(input);
     match input.split_first() {
         Some((Token::True, rest)) => Ok((rest, Expr::Bool(true))),
         Some((Token::False, rest)) => Ok((rest, Expr::Bool(false))),
@@ -243,69 +329,11 @@ fn parse_bool(input: Tokens) -> IResult<Tokens, Expr> {
 }
 
 /// ------------------------------------------------------------------
-/// If-Else Parser
-/// ------------------------------------------------------------------
-/// #### Parses if-else expressions.
-/// uses the `parse_expr` function to parse the condition and branches.
-/// The branches are expected to be block expressions.
-fn parse_if_else(input: Tokens) -> IResult<Tokens, Expr> {
-    let (input, _) = tag_token(Token::If)(input)?;
-    let (input, condition) = parse_expr(input)?;
-    let (input, then_branch) = parse_block_expr(input)?;
-
-    let (input, else_branch) = if let Some((Token::Else, rest)) = input.split_first() {
-        let (input, block) = parse_block_expr(&rest)?;
-        (input, Some(Box::new(block)))
-    } else {
-        (input, None)
-    };
-
-    Ok((
-        input,
-        Expr::IfElse {
-            condition: Box::new(condition),
-            then_branch: Box::new(then_branch),
-            else_branch, // already an Option<Box<Expr>>, no Box::new needed
-        },
-    ))
-}
-
-/// ------------------------------------------------------------------
-/// Logical NOT and Unary Minus Parser
-/// ------------------------------------------------------------------
-/// #### Parses unary expressions like `-x` or `!x`.
-/// `-` becomes UnaryOp::Neg and `!` becomes UnaryOp::Not.
-fn parse_unary(input: Tokens) -> IResult<Tokens, Expr> {
-    match input.split_first() {
-        Some((Token::Minus, rest)) => {
-            let (input, expr) = parse_unary(rest)?;
-            Ok((
-                input,
-                Expr::UnaryOp {
-                    op: UnaryOp::Neg,
-                    expr: Box::new(expr),
-                },
-            ))
-        }
-        Some((Token::Not, rest)) => {
-            let (input, expr) = parse_unary(rest)?;
-            Ok((
-                input,
-                Expr::UnaryOp {
-                    op: UnaryOp::Not,
-                    expr: Box::new(expr),
-                },
-            ))
-        }
-        _ => parse_primary(input),
-    }
-}
-
-/// ------------------------------------------------------------------
 /// String Literal Parser
 /// ------------------------------------------------------------------
 /// #### Parses string literals like `"hello"`
 fn parse_string(input: Tokens) -> IResult<Tokens, Expr> {
+    let input = skip_ignored(input);
     match input.split_first() {
         Some((Token::StringLiteral(s), rest)) => Ok((rest, Expr::String(s.clone()))),
         _ => Err(nom::Err::Error(nom::error::Error::new(
@@ -320,6 +348,7 @@ fn parse_string(input: Tokens) -> IResult<Tokens, Expr> {
 /// ------------------------------------------------------------------
 /// #### Parses bare identifiers like `x`, `foo`, etc.
 fn parse_identifier(input: Tokens) -> IResult<Tokens, Expr> {
+    let input = skip_ignored(input);
     match input.split_first() {
         Some((Token::Identifier(name), rest)) => Ok((rest, Expr::Variable(name.clone()))),
         _ => Err(nom::Err::Error(nom::error::Error::new(

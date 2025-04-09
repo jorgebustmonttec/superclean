@@ -1,6 +1,6 @@
 use crate::ast::{Stmt, Type};
 use crate::parser::Tokens;
-use crate::parser::{parse_expr, tag_token};
+use crate::parser::{parse_expr, skip_ignored, tag_token};
 use crate::token::Token;
 use nom::{IResult, Parser, branch::alt, error::ErrorKind};
 
@@ -18,7 +18,9 @@ pub fn parse_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
 /// ------------------------------------------------------------------
 /// #### Parses variable declarations like `let x = 5;` or `let x: Int = 5;`
 fn parse_let_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
+    let input = skip_ignored(input);
     let (input, _) = tag_token(Token::Let)(input)?;
+    let input = skip_ignored(input);
 
     let token = input
         .first()
@@ -34,17 +36,21 @@ fn parse_let_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
     };
 
     let mut input = &input[1..];
+    input = skip_ignored(input);
 
     let (new_input, ty) = if let Some((Token::Colon, rest)) = input.split_first() {
-        let (input, ty) = parse_type(&rest)?;
+        let input = skip_ignored(rest);
+        let (input, ty) = parse_type(input)?;
         (input, Some(ty))
     } else {
         (input, None)
     };
-    input = new_input;
+    input = skip_ignored(new_input);
 
     let (input, _) = tag_token(Token::Equal)(input)?;
+    let input = skip_ignored(input);
     let (input, expr) = parse_expr(input)?;
+    let input = skip_ignored(input);
     let (input, _) = tag_token(Token::Semicolon)(input)?;
 
     Ok((input, Stmt::Let { name, ty, expr }))
@@ -55,7 +61,9 @@ fn parse_let_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
 /// ------------------------------------------------------------------
 /// #### Wraps expressions as standalone statements.
 fn parse_expr_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
+    let input = skip_ignored(input);
     let (input, expr) = parse_expr(input)?;
+    let input = skip_ignored(input);
     let (input, _) = tag_token(Token::Semicolon)(input)?;
     Ok((input, Stmt::Expr(expr)))
 }
