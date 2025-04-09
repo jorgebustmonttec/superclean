@@ -53,7 +53,10 @@ pub enum Token {
     Semicolon,
     LBracket,
     RBracket,
-    Newline,
+
+    // Miscellaneous
+    Whitespace(String), // for spaces, tabs, etc.
+    Newline,            // for newlines like \n
 
     // End of input
     EOF,

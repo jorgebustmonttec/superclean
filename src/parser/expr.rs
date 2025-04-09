@@ -1,5 +1,5 @@
 use crate::ast::{BinOp, Expr, UnaryOp};
-use crate::parser::{parse_block_expr, tag_token};
+use crate::parser::{parse_block_expr, skip_ignored, tag_token};
 use crate::token::Token;
 use nom::{IResult, Parser, branch::alt, error::ErrorKind};
 
@@ -20,6 +20,87 @@ type Tokens<'a> = &'a [Token];
 /// - `IResult<Tokens, Expr>`: The parsed expression and remaining tokens.
 pub fn parse_expr(input: Tokens) -> IResult<Tokens, Expr> {
     parse_logical_or.parse(input)
+}
+
+/// ------------------------------------------------------------------
+/// Logical OR Parser
+/// ------------------------------------------------------------------
+/// #### Parses logical OR (`||`) expressions. Lowest precedence.
+fn parse_logical_or(input: Tokens) -> IResult<Tokens, Expr> {
+    let (mut input, mut expr) = parse_logical_and.parse(input)?;
+
+    loop {
+        if let Some((Token::Or, rest)) = input.split_first() {
+            input = rest;
+            let (new_input, rhs) = parse_logical_and.parse(input)?;
+            input = new_input;
+            expr = Expr::BinOp {
+                left: Box::new(expr),
+                op: BinOp::Or,
+                right: Box::new(rhs),
+            };
+        } else {
+            break;
+        }
+    }
+
+    Ok((input, expr))
+}
+
+/// ------------------------------------------------------------------
+/// Logical AND Parser
+/// ------------------------------------------------------------------
+/// #### Parses logical AND (`&&`) expressions. Higher than OR.
+fn parse_logical_and(input: Tokens) -> IResult<Tokens, Expr> {
+    let (mut input, mut expr) = parse_comparison.parse(input)?;
+
+    loop {
+        if let Some((Token::And, rest)) = input.split_first() {
+            input = rest;
+            let (new_input, rhs) = parse_comparison.parse(input)?;
+            input = new_input;
+            expr = Expr::BinOp {
+                left: Box::new(expr),
+                op: BinOp::And,
+                right: Box::new(rhs),
+            };
+        } else {
+            break;
+        }
+    }
+
+    Ok((input, expr))
+}
+
+/// ------------------------------------------------------------------
+/// Comparison Parser
+/// ------------------------------------------------------------------
+/// #### Parses comparison expressions: ==, !=, <, <=, >, >=
+fn parse_comparison(input: Tokens) -> IResult<Tokens, Expr> {
+    let (mut input, mut expr) = parse_add_sub.parse(input)?;
+
+    loop {
+        let (op, rest) = match input.split_first() {
+            Some((Token::EqualEqual, r)) => (Some(BinOp::Equal), r),
+            Some((Token::NotEqual, r)) => (Some(BinOp::NotEqual), r),
+            Some((Token::Less, r)) => (Some(BinOp::Less), r),
+            Some((Token::LessEqual, r)) => (Some(BinOp::LessEqual), r),
+            Some((Token::Greater, r)) => (Some(BinOp::Greater), r),
+            Some((Token::GreaterEqual, r)) => (Some(BinOp::GreaterEqual), r),
+            _ => break,
+        };
+
+        input = rest;
+        let (new_input, rhs) = parse_add_sub.parse(input)?;
+        input = new_input;
+        expr = Expr::BinOp {
+            left: Box::new(expr),
+            op: op.unwrap(),
+            right: Box::new(rhs),
+        };
+    }
+
+    Ok((input, expr))
 }
 
 /// ------------------------------------------------------------------
@@ -190,87 +271,6 @@ fn parse_if_else(input: Tokens) -> IResult<Tokens, Expr> {
 }
 
 /// ------------------------------------------------------------------
-/// Logical OR Parser
-/// ------------------------------------------------------------------
-/// #### Parses logical OR (`||`) expressions. Lowest precedence.
-fn parse_logical_or(input: Tokens) -> IResult<Tokens, Expr> {
-    let (mut input, mut expr) = parse_logical_and.parse(input)?;
-
-    loop {
-        if let Some((Token::Or, rest)) = input.split_first() {
-            input = rest;
-            let (new_input, rhs) = parse_logical_and.parse(input)?;
-            input = new_input;
-            expr = Expr::BinOp {
-                left: Box::new(expr),
-                op: BinOp::Or,
-                right: Box::new(rhs),
-            };
-        } else {
-            break;
-        }
-    }
-
-    Ok((input, expr))
-}
-
-/// ------------------------------------------------------------------
-/// Logical AND Parser
-/// ------------------------------------------------------------------
-/// #### Parses logical AND (`&&`) expressions. Higher than OR.
-fn parse_logical_and(input: Tokens) -> IResult<Tokens, Expr> {
-    let (mut input, mut expr) = parse_comparison.parse(input)?;
-
-    loop {
-        if let Some((Token::And, rest)) = input.split_first() {
-            input = rest;
-            let (new_input, rhs) = parse_comparison.parse(input)?;
-            input = new_input;
-            expr = Expr::BinOp {
-                left: Box::new(expr),
-                op: BinOp::And,
-                right: Box::new(rhs),
-            };
-        } else {
-            break;
-        }
-    }
-
-    Ok((input, expr))
-}
-
-/// ------------------------------------------------------------------
-/// Comparison Parser
-/// ------------------------------------------------------------------
-/// #### Parses comparison expressions: ==, !=, <, <=, >, >=
-fn parse_comparison(input: Tokens) -> IResult<Tokens, Expr> {
-    let (mut input, mut expr) = parse_add_sub.parse(input)?;
-
-    loop {
-        let (op, rest) = match input.split_first() {
-            Some((Token::EqualEqual, r)) => (Some(BinOp::Equal), r),
-            Some((Token::NotEqual, r)) => (Some(BinOp::NotEqual), r),
-            Some((Token::Less, r)) => (Some(BinOp::Less), r),
-            Some((Token::LessEqual, r)) => (Some(BinOp::LessEqual), r),
-            Some((Token::Greater, r)) => (Some(BinOp::Greater), r),
-            Some((Token::GreaterEqual, r)) => (Some(BinOp::GreaterEqual), r),
-            _ => break,
-        };
-
-        input = rest;
-        let (new_input, rhs) = parse_add_sub.parse(input)?;
-        input = new_input;
-        expr = Expr::BinOp {
-            left: Box::new(expr),
-            op: op.unwrap(),
-            right: Box::new(rhs),
-        };
-    }
-
-    Ok((input, expr))
-}
-
-/// ------------------------------------------------------------------
 /// Logical NOT and Unary Minus Parser
 /// ------------------------------------------------------------------
 /// #### Parses unary expressions like `-x` or `!x`.
@@ -339,6 +339,7 @@ mod expr_tests {
 
     mod boolean_literal_tests {
         use super::*;
+        use crate::lexer::lex;
 
         // ========================== Boolean Literal ==========================
 
@@ -373,18 +374,14 @@ mod expr_tests {
         /// The expected result is an `Expr::IfElse` variant with the corresponding condition and branches.
         #[test]
         fn test_parse_if_else() {
-            let tokens = vec![
-                Token::If,
-                Token::True,
-                Token::LBrace,
-                Token::True,
-                Token::RBrace,
-                Token::Else,
-                Token::LBrace,
-                Token::False,
-                Token::RBrace,
-            ];
-            let result = parse_if_else(&tokens);
+            let code = "
+            if true {
+                true
+            } else {
+                false
+            }";
+            let tokens = lex(code).unwrap();
+            let result = parse_expr(&tokens);
             assert!(result.is_ok());
             let (remaining, expr) = result.unwrap();
             assert_eq!(remaining, &[]);
@@ -407,25 +404,17 @@ mod expr_tests {
         /// The expected result is an `Expr::IfElse` variant with the corresponding condition and branches.
         #[test]
         fn test_parse_nested_if_else() {
-            let tokens = vec![
-                Token::If,
-                Token::True,
-                Token::LBrace,
-                Token::If,
-                Token::False,
-                Token::LBrace,
-                Token::True,
-                Token::RBrace,
-                Token::Else,
-                Token::LBrace,
-                Token::False,
-                Token::RBrace,
-                Token::RBrace,
-                Token::Else,
-                Token::LBrace,
-                Token::False,
-                Token::RBrace,
-            ];
+            let code = "
+            if true {
+                if false {
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            }";
+            let tokens = lex(code).unwrap();
             let result = parse_expr(&tokens);
             assert!(result.is_ok());
             let (remaining, expr) = result.unwrap();

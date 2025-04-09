@@ -18,6 +18,7 @@ use crate::lexer::operators::{
     lex_less_equal, lex_minus, lex_not, lex_not_equal, lex_or, lex_percent, lex_plus, lex_slash,
     lex_star,
 };
+use crate::lexer::whitespace::{lex_newline, lex_whitespace};
 
 /// Tries to parse a single token from the beginning of the input string.
 ///
@@ -33,6 +34,8 @@ use crate::lexer::operators::{
 /// - `IResult<&str, Token>`: A nom-style result containing the remaining input and the parsed token.
 fn lex_token(input: &str) -> IResult<&str, Token> {
     let token_parser = alt((
+        lex_newline,    // ⬅ new
+        lex_whitespace, // ⬅ new
         lex_line_comment,
         lex_block_comment,
         lex_string,
@@ -69,7 +72,7 @@ fn lex_token(input: &str) -> IResult<&str, Token> {
         lex_unrecognized, // ← ADD THIS LAST
     ));
 
-    delimited(multispace0, alt((token_parser, token_parser2)), multispace0).parse(input)
+    alt((token_parser, token_parser2)).parse(input)
 }
 
 /// Fails to parse any valid token, returning an error intentionally.
@@ -160,7 +163,7 @@ pub fn lex(input: &str) -> Result<Vec<Token>, LexError> {
     let mut remaining = input;
     let mut tokens = Vec::new();
 
-    while !remaining.trim_start().is_empty() {
+    while !remaining.is_empty() {
         let original_len = remaining.len();
 
         match lex_token(remaining) {

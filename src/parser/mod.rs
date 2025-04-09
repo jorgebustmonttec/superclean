@@ -22,13 +22,33 @@ use nom::{IResult, error::ErrorKind};
 
 type Tokens<'a> = &'a [Token];
 
+/// Skips over any whitespace, newlines, or comments.
+/// Returns the remaining slice after skipping them.
+pub fn skip_ignored(mut input: Tokens) -> Tokens {
+    while let Some(tok) = input.first() {
+        match tok {
+            Token::Whitespace(_)
+            | Token::Newline
+            | Token::LineComment(_)
+            | Token::BlockComment(_) => {
+                input = &input[1..];
+            }
+            _ => break,
+        }
+    }
+    input
+}
+
 pub fn tag_token(expected: Token) -> impl Fn(Tokens) -> IResult<Tokens, Token> {
-    move |input: Tokens| match input.split_first() {
-        Some((tok, rest)) if *tok == expected => Ok((rest, tok.clone())),
-        _ => Err(nom::Err::Error(nom::error::Error::new(
-            input,
-            ErrorKind::Tag,
-        ))),
+    move |input: Tokens| {
+        let input = skip_ignored(input);
+        match input.split_first() {
+            Some((tok, rest)) if *tok == expected => Ok((rest, tok.clone())),
+            _ => Err(nom::Err::Error(nom::error::Error::new(
+                input,
+                ErrorKind::Tag,
+            ))),
+        }
     }
 }
 
