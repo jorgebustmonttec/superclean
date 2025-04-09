@@ -35,11 +35,8 @@ fn main() {
     // Step 2: Parsing
     println!("\n== Parsing ==");
     match parse(&tokens) {
-        Ok((rest, ast)) => {
+        Ok(ast) => {
             println!("AST:\n{:#?}", ast);
-            if !rest.is_empty() {
-                println!("\nWarning: There are leftover tokens:\n{:#?}", rest);
-            }
         }
         Err(e) => {
             eprintln!("\nParser Error:");

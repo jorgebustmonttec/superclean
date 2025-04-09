@@ -20,6 +20,10 @@ use crate::ast::Stmt;
 use crate::token::Token;
 use nom::{IResult, error::ErrorKind};
 
+//error stuf
+use crate::error::ParserError;
+use crate::position::compute_position;
+
 type Tokens<'a> = &'a [Token];
 
 /// Skips over any whitespace, newlines, or comments.
@@ -62,26 +66,30 @@ pub fn parse_block_expr(input: Tokens) -> IResult<Tokens, crate::ast::Expr> {
 /// ------------------------------------------------------
 /// Top-level entry point for parsing a program or file.
 /// ------------------------------------------------------
-pub fn parse(tokens: Tokens) -> IResult<Tokens, Vec<Stmt>> {
+pub fn parse(tokens: &[Token]) -> Result<Vec<Stmt>, ParserError> {
     let mut input = tokens;
     let mut stmts = Vec::new();
 
     while !input.is_empty() {
-        input = skip_ignored(input); // ← Skip comments/whitespace/newlines
-
-        if input.is_empty() {
-            break;
+        let token_index = tokens.len() - input.len();
+        match crate::parser::parse_stmt(input) {
+            Ok((rest, stmt)) => {
+                stmts.push(stmt);
+                input = rest;
+            }
+            Err(_) => {
+                let (line, column) = compute_position(tokens, token_index);
+                let unexpected = tokens.get(token_index);
+                let msg = match unexpected {
+                    Some(tok) => format!("Unexpected token: {:?}", tok),
+                    None => "Unexpected end of input".to_string(),
+                };
+                return Err(ParserError::new(msg, line, column));
+            }
         }
-
-        println!("\n[parse] Input before stmt parse: {:#?}", input);
-        let (rest, stmt) = parse_stmt(input)?;
-        println!("[parse] Parsed statement: {:#?}", stmt);
-
-        stmts.push(stmt);
-        input = skip_ignored(rest); // ← Skip again after parsing a stmt
     }
 
-    Ok((input, stmts))
+    Ok(stmts)
 }
 
 // ========================= Tests =========================
@@ -153,12 +161,11 @@ mod parser_tests {
 
         let z = x + y;
         let result = z * 2;
-        ";
+    ";
         let tokens = lex(code).unwrap();
         let result = parse(&tokens);
         assert!(result.is_ok());
-        let (remaining, stmts) = result.unwrap();
-        assert_eq!(remaining, &[]);
+        let stmts = result.unwrap();
         assert_eq!(
             stmts,
             vec![
