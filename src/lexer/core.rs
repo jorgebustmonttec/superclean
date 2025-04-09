@@ -142,8 +142,11 @@ pub fn find_line_and_column(input: &str, position: usize) -> (usize, usize) {
 ///     let tokens = lex(input);
 ///     assert_eq!(tokens, Ok(vec![
 ///         Token::Let,
+///        Token::Whitespace(" ".to_string()),
 ///         Token::Identifier("x".to_string()),
+///        Token::Whitespace(" ".to_string()),
 ///         Token::Equal,
+///       Token::Whitespace(" ".to_string()),
 ///         Token::Integer(42),
 ///         Token::Semicolon,
 ///     ]));
