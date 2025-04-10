@@ -12,6 +12,11 @@ pub enum Token {
     Print,
     True,
     False,
+    Break,
+    For,
+    In,
+
+    // Types
     IntType,
     BoolType,
     StringType,
@@ -86,6 +91,10 @@ impl Token {
             Token::Print => 5,
             Token::True => 4,
             Token::False => 5,
+            Token::Break => 5,
+            Token::For => 3,
+            Token::In => 2,
+
             Token::IntType => 3,
             Token::BoolType => 4,
             Token::StringType => 6,

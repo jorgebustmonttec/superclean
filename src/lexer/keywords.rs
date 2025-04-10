@@ -34,6 +34,9 @@ pub fn lex_identifier_or_keyword(input: &str) -> IResult<&str, Token> {
             "Bool" => Token::BoolType,
             "String" => Token::StringType,
             "Unit" => Token::UnitType,
+            "break" => Token::Break,
+            "for" => Token::For,
+            "in" => Token::In,
             _ => Token::Identifier(word),
         })
         .parse(input)

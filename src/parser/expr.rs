@@ -27,7 +27,7 @@ pub fn parse_expr(input: Tokens) -> IResult<Tokens, Expr> {
 /// ------------------------------------------------------------------
 /// #### Parses logical OR (`||`) expressions. Lowest precedence.
 fn parse_logical_or(input: Tokens) -> IResult<Tokens, Expr> {
-    let mut input = skip_ignored(input);
+    let input = skip_ignored(input);
     let (mut input, mut expr) = parse_logical_and.parse(input)?;
 
     loop {
@@ -54,7 +54,7 @@ fn parse_logical_or(input: Tokens) -> IResult<Tokens, Expr> {
 /// ------------------------------------------------------------------
 /// #### Parses logical AND (`&&`) expressions. Higher than OR.
 fn parse_logical_and(input: Tokens) -> IResult<Tokens, Expr> {
-    let mut input = skip_ignored(input);
+    let input = skip_ignored(input);
     let (mut input, mut expr) = parse_comparison.parse(input)?;
 
     loop {
@@ -81,7 +81,7 @@ fn parse_logical_and(input: Tokens) -> IResult<Tokens, Expr> {
 /// ------------------------------------------------------------------
 /// #### Parses comparison expressions: ==, !=, <, <=, >, >=
 fn parse_comparison(input: Tokens) -> IResult<Tokens, Expr> {
-    let mut input = skip_ignored(input);
+    let input = skip_ignored(input);
     let (mut input, mut expr) = parse_add_sub.parse(input)?;
 
     loop {
@@ -115,7 +115,7 @@ fn parse_comparison(input: Tokens) -> IResult<Tokens, Expr> {
 /// #### Parses addition and subtraction expressions. Has low precedence
 /// and is chained with multiplication and division (which has higher precedence).
 fn parse_add_sub(input: Tokens) -> IResult<Tokens, Expr> {
-    let mut input = skip_ignored(input);
+    let input = skip_ignored(input);
     let (mut input, mut expr) = parse_mul_div_mod.parse(input)?;
 
     loop {
@@ -148,7 +148,7 @@ fn parse_add_sub(input: Tokens) -> IResult<Tokens, Expr> {
 /// ------------------------------------------------------------------
 /// #### Parses multiplication, division, and modulo operations. Has medium precedence.
 fn parse_mul_div_mod(input: Tokens) -> IResult<Tokens, Expr> {
-    let mut input = skip_ignored(input);
+    let input = skip_ignored(input);
     let (mut input, mut expr) = parse_unary.parse(input)?;
 
     loop {
@@ -368,7 +368,7 @@ mod expr_tests {
 
     mod boolean_literal_tests {
         use super::*;
-        use crate::lexer::lex;
+        //use crate::lexer::lex;
 
         // ========================== Boolean Literal ==========================
 

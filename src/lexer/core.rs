@@ -1,7 +1,4 @@
-use nom::{
-    Err as NomErr, IResult, Parser, branch::alt, character::complete::multispace0,
-    sequence::delimited,
-};
+use nom::{Err as NomErr, IResult, Parser, branch::alt};
 
 use crate::error::LexError;
 use crate::token::Token;
