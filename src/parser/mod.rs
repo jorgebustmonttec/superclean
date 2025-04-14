@@ -156,12 +156,10 @@ mod parser_tests {
     fn mock_code_test2() {
         let code = "
         let x: Int = 5;
-
         let y = 10;
-
         let z = x + y;
         let result = z * 2;
-    ";
+        ";
         let tokens = lex(code).unwrap();
         let result = parse(&tokens);
         assert!(result.is_ok());
