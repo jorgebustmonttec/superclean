@@ -6,8 +6,8 @@ pub enum Expr {
     Float(f64),
     IfElse {
         condition: Box<Expr>,
-        then_branch: Box<Expr>,
-        else_branch: Option<Box<Expr>>,
+        then_branch: Vec<Expr>,
+        else_branch: Option<Vec<Expr>>,
     },
     BinOp {
         left: Box<Expr>,
@@ -24,6 +24,7 @@ pub enum Expr {
         function: Box<Expr>,
         args: Vec<Expr>,
     },
+    StmtExpr(Box<Stmt>),
 }
 
 #[derive(Debug, Clone, PartialEq)]

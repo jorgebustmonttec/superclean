@@ -1,6 +1,6 @@
-let x: Int = 42;
 if x < 100 {
     true //test
 } else {
+    let x = 100;
     false
 };

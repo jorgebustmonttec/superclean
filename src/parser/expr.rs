@@ -267,7 +267,7 @@ fn parse_if_else(input: Tokens) -> IResult<Tokens, Expr> {
     let (input, else_branch) = if let Some((Token::Else, rest)) = input.split_first() {
         let input = skip_ignored(&rest);
         let (input, block) = parse_block_expr(input)?;
-        (input, Some(Box::new(block)))
+        (input, Some(block))
     } else {
         (input, None)
     };
@@ -276,7 +276,7 @@ fn parse_if_else(input: Tokens) -> IResult<Tokens, Expr> {
         input,
         Expr::IfElse {
             condition: Box::new(condition),
-            then_branch: Box::new(then_branch),
+            then_branch,
             else_branch,
         },
     ))
@@ -531,8 +531,8 @@ mod expr_tests {
                 result.1,
                 Expr::IfElse {
                     condition: Box::new(Expr::Bool(true)),
-                    then_branch: Box::new(Expr::Int(1)),
-                    else_branch: Some(Box::new(Expr::Int(2))),
+                    then_branch: vec![Expr::Int(1)],
+                    else_branch: Some(vec![Expr::Int(2)]),
                 }
             );
         }
@@ -546,7 +546,7 @@ mod expr_tests {
                 result.1,
                 Expr::IfElse {
                     condition: Box::new(Expr::Bool(false)),
-                    then_branch: Box::new(Expr::Int(42)),
+                    then_branch: vec![Expr::Int(42)],
                     else_branch: None,
                 }
             );

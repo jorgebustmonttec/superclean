@@ -15,6 +15,7 @@ pub mod stmt;
 pub use expr::parse_expr;
 pub use stmt::parse_stmt;
 
+use crate::ast::Expr;
 use crate::ast::Stmt;
 /// Utility shared by expr/stmt
 use crate::token::Token;
@@ -56,11 +57,38 @@ pub fn tag_token(expected: Token) -> impl Fn(Tokens) -> IResult<Tokens, Token> {
     }
 }
 
-pub fn parse_block_expr(input: Tokens) -> IResult<Tokens, crate::ast::Expr> {
-    let (input, _) = tag_token(Token::LBrace)(input)?;
-    let (input, expr) = parse_expr(input)?;
+/// --------------------------------------
+/// Bloxk expression parser
+/// --------------------------------------
+/// Parses a block expression, which is a sequence of expressions enclosed in braces.
+/// The block expression can contain multiple statements or expressions.
+pub fn parse_block_expr(input: Tokens) -> IResult<Tokens, Vec<Expr>> {
+    let (mut input, _) = tag_token(Token::LBrace)(input)?;
+    let mut exprs = Vec::new();
+
+    while let Some(tok) = input.first() {
+        if *tok == Token::RBrace {
+            break;
+        }
+
+        // Try parsing a statement first
+        if let Ok((new_input, stmt)) = crate::parser::stmt::parse_stmt(input) {
+            exprs.push(Expr::StmtExpr(Box::new(stmt)));
+            input = new_input;
+        } else if let Ok((new_input, expr)) = parse_expr(input) {
+            // If statement parsing fails, try parsing an expression
+            exprs.push(expr);
+            input = new_input;
+        } else {
+            return Err(nom::Err::Error(nom::error::Error::new(
+                input,
+                ErrorKind::Tag,
+            )));
+        }
+    }
+
     let (input, _) = tag_token(Token::RBrace)(input)?;
-    Ok((input, expr))
+    Ok((input, exprs))
 }
 
 /// ------------------------------------------------------
@@ -122,13 +150,13 @@ mod parser_tests {
             expr,
             Expr::IfElse {
                 condition: Box::new(Expr::Bool(true)),
-                then_branch: Box::new(Expr::IfElse {
+                then_branch: vec![Expr::IfElse {
                     condition: Box::new(Expr::BinOp {
                         left: Box::new(Expr::Bool(false)),
                         op: BinOp::Or,
                         right: Box::new(Expr::Bool(true)),
                     }),
-                    then_branch: Box::new(Expr::BinOp {
+                    then_branch: vec![Expr::BinOp {
                         left: Box::new(Expr::Int(1)),
                         op: BinOp::Add,
                         right: Box::new(Expr::BinOp {
@@ -136,18 +164,18 @@ mod parser_tests {
                             op: BinOp::Mul,
                             right: Box::new(Expr::Int(3)),
                         }),
-                    }),
-                    else_branch: Some(Box::new(Expr::BinOp {
+                    }],
+                    else_branch: Some(vec![Expr::BinOp {
                         left: Box::new(Expr::Int(4)),
                         op: BinOp::Div,
                         right: Box::new(Expr::Int(2)),
-                    })),
-                }),
-                else_branch: Some(Box::new(Expr::BinOp {
+                    }]),
+                }],
+                else_branch: Some(vec![Expr::BinOp {
                     left: Box::new(Expr::Int(5)),
                     op: BinOp::Mod,
                     right: Box::new(Expr::Int(2)),
-                })),
+                }]),
             }
         );
     }
