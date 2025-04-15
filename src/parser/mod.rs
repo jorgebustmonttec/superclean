@@ -71,7 +71,6 @@ pub fn parse(tokens: &[Token]) -> Result<Vec<Stmt>, ParserError> {
     let mut stmts = Vec::new();
 
     while !input.is_empty() {
-        input = skip_ignored(input); // Ensure ignored tokens are skipped before parsing
         let token_index = tokens.len() - input.len();
         match crate::parser::parse_stmt(input) {
             Ok((rest, stmt)) => {
