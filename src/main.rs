@@ -8,7 +8,7 @@ fn main() {
     // Load input from test.txt
     let path = Path::new("test.txt");
     let input = match fs::read_to_string(path) {
-        Ok(content) => content,
+        Ok(content) => content.trim_end().to_string(),
         Err(e) => {
             eprintln!("Error reading test.txt: {}", e);
             return;

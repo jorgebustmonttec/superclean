@@ -364,7 +364,7 @@ fn parse_identifier(input: Tokens) -> IResult<Tokens, Expr> {
 mod expr_tests {
     use super::*;
     use crate::lexer::lex;
-    use crate::token::Token;
+    //use crate::token::Token;
 
     mod literal_tests {
         use super::*;
