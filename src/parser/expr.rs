@@ -230,6 +230,7 @@ fn parse_primary(input: Tokens) -> IResult<Tokens, Expr> {
         parse_bool,
         parse_string,
         parse_identifier,
+        parse_call_expr,
     ))
     .parse(input)
 }
@@ -356,6 +357,50 @@ fn parse_identifier(input: Tokens) -> IResult<Tokens, Expr> {
             ErrorKind::Tag,
         ))),
     }
+}
+
+/// ------------------------------------------------------------------
+/// Function Call Parser
+/// ------------------------------------------------------------------
+/// #### Parses function calls like `add(5, 3)`
+fn parse_call_expr(input: Tokens) -> IResult<Tokens, Expr> {
+    let input = skip_ignored(input);
+
+    // Parse function name
+    let (input, function) = parse_primary(input)?;
+    let input = skip_ignored(input);
+
+    // Parse arguments
+    let (input, _) = tag_token(Token::LParen)(input)?;
+    let mut args = Vec::new();
+    let mut input = skip_ignored(input);
+
+    while let Some(tok) = input.first() {
+        if *tok == Token::RParen {
+            break;
+        }
+
+        let (new_input, arg) = parse_expr(input)?;
+        args.push(arg);
+        input = skip_ignored(new_input);
+
+        // Check for comma or closing parenthesis
+        if let Some((Token::Comma, rest)) = input.split_first() {
+            input = skip_ignored(rest);
+        } else {
+            break;
+        }
+    }
+
+    let (input, _) = tag_token(Token::RParen)(input)?;
+
+    Ok((
+        input,
+        Expr::Call {
+            function: Box::new(function),
+            args,
+        },
+    ))
 }
 
 // ======================== Tests =========================

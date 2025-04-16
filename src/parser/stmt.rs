@@ -10,7 +10,21 @@ use nom::{IResult, Parser, branch::alt, error::ErrorKind};
 /// #### Parses any statement (e.g., variable declarations)
 /// ----------------------------------------------------
 pub fn parse_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
-    alt((parse_let_stmt, parse_expr_stmt)).parse(input)
+    let input = skip_ignored(input);
+    println!("[parse_stmt] Current token: {:?}", input.first());
+    alt((
+        parse_return_stmt,
+        parse_let_stmt,
+        parse_fun_stmt,
+        parse_expr_stmt,
+    ))
+    .parse(input)
+    .or_else(|_| {
+        Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            ErrorKind::Tag,
+        )))
+    })
 }
 
 /// ------------------------------------------------------------------
@@ -66,6 +80,129 @@ fn parse_expr_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
     let input = skip_ignored(input);
     let (input, _) = tag_token(Token::Semicolon)(input)?;
     Ok((input, Stmt::Expr(expr)))
+}
+
+/// ------------------------------------------------------------------
+/// Function Statement Parser
+/// ------------------------------------------------------------------
+/// #### Parses function definitions like `fun add(a: Int, b: Int): Int { ... }`
+fn parse_fun_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
+    let input = skip_ignored(input);
+    let (input, _) = tag_token(Token::Fun)(input)?;
+    let input = skip_ignored(input);
+
+    // Parse function name
+    let (input, name) = match input.split_first() {
+        Some((Token::Identifier(name), rest)) => (rest, name.clone()),
+        _ => {
+            return Err(nom::Err::Error(nom::error::Error::new(
+                input,
+                ErrorKind::Tag,
+            )));
+        }
+    };
+    let input = skip_ignored(input);
+
+    // Parse parameters
+    let (input, _) = tag_token(Token::LParen)(input)?;
+    let mut params = Vec::new();
+    let mut input = skip_ignored(input);
+
+    while let Some(tok) = input.first() {
+        if *tok == Token::RParen {
+            break;
+        }
+
+        // Parse parameter name
+        let (new_input, param_name) = match input.split_first() {
+            Some((Token::Identifier(name), rest)) => (rest, name.clone()),
+            _ => {
+                return Err(nom::Err::Error(nom::error::Error::new(
+                    input,
+                    ErrorKind::Tag,
+                )));
+            }
+        };
+        input = skip_ignored(new_input);
+
+        // Parse colon and type
+        let (new_input, _) = tag_token(Token::Colon)(input)?;
+        input = skip_ignored(new_input);
+        let (new_input, param_type) = parse_type(input)?;
+        input = skip_ignored(new_input);
+
+        params.push((param_name, param_type));
+
+        // Check for comma or closing parenthesis
+        if let Some((Token::Comma, rest)) = input.split_first() {
+            input = skip_ignored(rest);
+        } else {
+            break;
+        }
+    }
+
+    let (input, _) = tag_token(Token::RParen)(input)?;
+    let input = skip_ignored(input);
+
+    // Parse return type
+    let (input, _) = tag_token(Token::Colon)(input)?;
+    let input = skip_ignored(input);
+    let (input, return_type) = parse_type(input)?;
+    let input = skip_ignored(input);
+
+    println!("[parse_fun_stmt] Parsing function: {:?}", name);
+    println!("[parse_fun_stmt] Parameters: {:?}", params);
+    println!("[parse_fun_stmt] Return type: {:?}", return_type);
+    println!("[parse_fun_stmt] Parsing body...");
+
+    // Parse function body
+    let (input, body) = crate::parser::parse_block_stmt(input)?;
+
+    println!("[parse_fun_stmt] Function body parsed.");
+    println!("[parse_fun_stmt] Parsing complete.");
+    println!("[parse_fun_stmt] Function: {:?}", name);
+    println!("[parse_fun_stmt] Parameters: {:?}", params);
+    println!("[parse_fun_stmt] Return type: {:?}", return_type);
+    println!("[parse_fun_stmt] Body: {:?}", body);
+    println!("[parse_fun_stmt] Parsing complete.");
+
+    Ok((
+        input,
+        Stmt::Fun {
+            name,
+            params,
+            return_type,
+            body,
+        },
+    ))
+}
+
+/// ------------------------------------------------------------------
+/// Return Statement Parser
+/// ------------------------------------------------------------------
+/// #### Parses return statements like `return;` or `return expr;`
+fn parse_return_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
+    let input = skip_ignored(input);
+    println!("[parse_return_stmt] Parsing return statement...");
+    println!("[parse_return_stmt] Current token: {:?}", input.first());
+    let (input, _) = tag_token(Token::Return)(input)?;
+    let input = skip_ignored(input);
+
+    // Check if there's an expression after `return`
+    if let Ok((input, expr)) = parse_expr(input) {
+        let input = skip_ignored(input);
+        let (input, _) = tag_token(Token::Semicolon)(input)?;
+        println!("[parse_return_stmt] Found expression: {:?}", expr);
+        println!("[parse_return_stmt] Parsing complete.");
+
+        Ok((input, Stmt::Return(Some(expr))))
+    } else {
+        let (input, _) = tag_token(Token::Semicolon)(input)?;
+        println!("[parse_return_stmt] No expression found.");
+        println!("[parse_return_stmt] Parsing complete.");
+
+        Ok((input, Stmt::Return(None)))
+    }
 }
 
 /// ------------------------------------------------------------------

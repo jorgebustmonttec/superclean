@@ -58,6 +58,13 @@ pub enum Stmt {
         ty: Option<Type>, // ← was just `Type` before
         expr: Expr,
     },
+    Fun {
+        name: String,
+        params: Vec<(String, Type)>,
+        return_type: Type,
+        body: Vec<Stmt>,
+    },
+    Return(Option<Expr>),
 }
 
 #[derive(Debug, Clone, PartialEq)]

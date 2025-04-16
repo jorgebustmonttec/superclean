@@ -1,6 +1,2 @@
-if x < 100 {
-    true //test
-} else {
-    let x = 100;
-    false
-};
+let result = add(2, 3);
+print(result);

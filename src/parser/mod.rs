@@ -91,6 +91,41 @@ pub fn parse_block_expr(input: Tokens) -> IResult<Tokens, Vec<Expr>> {
     Ok((input, exprs))
 }
 
+/// ------------------------------------------------------------------
+/// Block Statement Parser
+/// ------------------------------------------------------------------
+/// #### Parses a block of statements enclosed in `{}`
+/// Returns a `Vec<Stmt>`.
+pub fn parse_block_stmt(input: Tokens) -> IResult<Tokens, Vec<Stmt>> {
+    println!("[parse_block_stmt] Parsing block statement...");
+    println!("[parse_block_stmt] Current token: {:?}", input.first());
+    let (mut input, _) = tag_token(Token::LBrace)(input)?;
+    let mut stmts = Vec::new();
+
+    while let Some(tok) = input.first() {
+        input = skip_ignored(input);
+        println!("[parse_block_stmt[while] Current token: {:?}", tok);
+
+        if *tok == Token::RBrace {
+            println!("[parse_block_stmt] Found RBrace, breaking out of loop.");
+            break; // Stop parsing when we encounter RBrace
+        }
+
+        let (new_input, stmt) = parse_stmt(input)?;
+        println!("[parse_block_stmt] Parsed statement: {:?}", stmt);
+        println!("[parse_block_stmt] Remaining tokens: {:?}", new_input);
+        stmts.push(stmt);
+        input = new_input;
+        input = skip_ignored(input);
+    }
+
+    println!("[parse_block_stmt] Finished parsing block statement.");
+    println!("[parse_block_stmt] Remaining tokens: {:?}", input);
+    println!("[parse_block_stmt] Parsed statements: {:?}", stmts);
+    let (input, _) = tag_token(Token::RBrace)(input)?;
+    Ok((input, stmts))
+}
+
 /// ------------------------------------------------------
 /// Top-level entry point for parsing a program or file.
 /// ------------------------------------------------------
