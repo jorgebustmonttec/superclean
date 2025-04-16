@@ -70,6 +70,11 @@ pub enum Stmt {
         name: String,
         expr: Expr,
     },
+    While {
+        condition: Expr,
+        body: Vec<Stmt>,
+    },
+    Break,
 }
 
 #[derive(Debug, Clone, PartialEq)]
