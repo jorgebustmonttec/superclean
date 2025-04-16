@@ -18,6 +18,7 @@ pub fn parse_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
         parse_print_stmt,
         parse_fun_stmt,
         parse_expr_stmt,
+        parse_reassignment_stmt,
     ))
     .parse(input)
 }
@@ -229,55 +230,157 @@ fn parse_type(input: Tokens) -> IResult<Tokens, Type> {
     }
 }
 
+/// ------------------------------------------------------------------
+/// reassignment Parser
+/// ------------------------------------------------------------------
+/// #### Parses variable reassignments like `x = 5;` or `y = y+ 1;`
+fn parse_reassignment_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
+    let input = skip_ignored(input);
+    let (input, name) = match input.split_first() {
+        Some((Token::Identifier(name), rest)) => (rest, name.clone()),
+        _ => {
+            return Err(nom::Err::Error(nom::error::Error::new(
+                input,
+                ErrorKind::Tag,
+            )));
+        }
+    };
+    let input = skip_ignored(input);
+    let (input, _) = tag_token(Token::Equal)(input)?;
+    let input = skip_ignored(input);
+    let (input, expr) = parse_expr(input)?;
+    let input = skip_ignored(input);
+    let (input, _) = tag_token(Token::Semicolon)(input)?;
+
+    Ok((input, Stmt::Reassignment { name, expr }))
+}
+
 // ============================== Tests ==============================
 
 #[cfg(test)]
-mod stmt_ests {
+mod stmt_tests {
     use super::*;
-    //use crate::lexer::lex;
-    use crate::token::Token;
+    use crate::lexer::lex;
 
-    mod let_stmt {
+    mod let_stmt_tests {
         use super::*;
 
-        // testing let x: Int = 5;
         #[test]
-        fn test_parse_let_stmt() {
-            let input = vec![
-                Token::Let,
-                Token::Identifier("x".to_string()),
-                Token::Colon,
-                Token::IntType,
-                Token::Equal,
-                Token::Integer(5),
-                Token::Semicolon,
-            ];
-            let expected = Stmt::Let {
-                name: "x".to_string(),
-                ty: Some(Type::Int),
-                expr: crate::ast::Expr::Int(5),
-            };
-            let result = parse_stmt(&input).unwrap();
-            assert_eq!(result.1, expected);
+        fn test_let_with_type() {
+            let code = "let x: Int = 5;";
+            let tokens = lex(code).unwrap();
+            let result = parse_stmt(&tokens).unwrap();
+            assert_eq!(
+                result.1,
+                Stmt::Let {
+                    name: "x".to_string(),
+                    ty: Some(Type::Int),
+                    expr: crate::ast::Expr::Int(5),
+                }
+            );
         }
 
-        // testing let x = 5; (without type)
         #[test]
-        fn test_parse_let_stmt_without_type() {
-            let input = vec![
-                Token::Let,
-                Token::Identifier("x".to_string()),
-                Token::Equal,
-                Token::Integer(5),
-                Token::Semicolon,
-            ];
-            let expected = Stmt::Let {
-                name: "x".to_string(),
-                ty: None,
-                expr: crate::ast::Expr::Int(5),
-            };
-            let result = parse_stmt(&input).unwrap();
-            assert_eq!(result.1, expected);
+        fn test_let_without_type() {
+            let code = "let x = 5;";
+            let tokens = lex(code).unwrap();
+            let result = parse_stmt(&tokens).unwrap();
+            assert_eq!(
+                result.1,
+                Stmt::Let {
+                    name: "x".to_string(),
+                    ty: None,
+                    expr: crate::ast::Expr::Int(5),
+                }
+            );
+        }
+    }
+
+    mod return_stmt_tests {
+        use super::*;
+
+        #[test]
+        fn test_return_with_expr() {
+            let code = "return 42;";
+            let tokens = lex(code).unwrap();
+            let result = parse_stmt(&tokens).unwrap();
+            assert_eq!(result.1, Stmt::Return(Some(crate::ast::Expr::Int(42))));
+        }
+
+        #[test]
+        fn test_return_without_expr() {
+            let code = "return;";
+            let tokens = lex(code).unwrap();
+            let result = parse_stmt(&tokens).unwrap();
+            assert_eq!(result.1, Stmt::Return(None));
+        }
+    }
+
+    mod print_stmt_tests {
+        use super::*;
+
+        #[test]
+        fn test_print_with_string() {
+            let code = "print(\"Hello, world!\");";
+            let tokens = lex(code).unwrap();
+            let result = parse_stmt(&tokens).unwrap();
+            assert_eq!(
+                result.1,
+                Stmt::Print(crate::ast::Expr::String("Hello, world!".to_string()))
+            );
+        }
+
+        #[test]
+        fn test_print_with_variable() {
+            let code = "print(x);";
+            let tokens = lex(code).unwrap();
+            let result = parse_stmt(&tokens).unwrap();
+            assert_eq!(
+                result.1,
+                Stmt::Print(crate::ast::Expr::Variable("x".to_string()))
+            );
+        }
+    }
+
+    mod fun_stmt_tests {
+        use super::*;
+
+        #[test]
+        fn test_function_with_return_type() {
+            let code = "fun add(a: Int, b: Int): Int { return a + b; }";
+            let tokens = lex(code).unwrap();
+            let result = parse_stmt(&tokens).unwrap();
+            assert!(matches!(result.1, Stmt::Fun { .. }));
+        }
+
+        #[test]
+        fn test_function_without_return_type() {
+            let code = "fun main() { print(\"Hello\"); }";
+            let tokens = lex(code).unwrap();
+            let result = parse_stmt(&tokens).unwrap();
+            assert!(matches!(result.1, Stmt::Fun { .. }));
+        }
+    }
+
+    mod reassignment_stmt_tests {
+        use super::*;
+
+        #[test]
+        fn test_reassignment() {
+            let code = "x = x + 1;";
+            let tokens = lex(code).unwrap();
+            let result = parse_stmt(&tokens).unwrap();
+            assert_eq!(
+                result.1,
+                Stmt::Reassignment {
+                    name: "x".to_string(),
+                    expr: crate::ast::Expr::BinOp {
+                        left: Box::new(crate::ast::Expr::Variable("x".to_string())),
+                        op: crate::ast::BinOp::Add,
+                        right: Box::new(crate::ast::Expr::Int(1)),
+                    },
+                }
+            );
         }
     }
 }

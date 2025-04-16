@@ -66,6 +66,10 @@ pub enum Stmt {
     },
     Return(Option<Expr>),
     Print(Expr),
+    Reassignment {
+        name: String,
+        expr: Expr,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]

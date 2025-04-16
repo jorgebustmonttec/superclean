@@ -1,11 +1,7 @@
-fun add(a: Int, b: Int) :Int {
-    return a + b;
-}
-
 fun main() {
-    let result = add(5, 10);
-    print("the result is: " + result);
-    if result > 10 {
-        print("the result is greater than 10");
+    let x = 5;
+    if true{
+        x=x+1;
     };
+    print(x);
 }
