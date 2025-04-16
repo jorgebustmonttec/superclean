@@ -19,6 +19,8 @@ pub fn parse_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
         parse_fun_stmt,
         parse_expr_stmt,
         parse_reassignment_stmt,
+        parse_break_stmt,
+        parse_while_stmt,
     ))
     .parse(input)
 }
@@ -214,6 +216,37 @@ fn parse_return_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
 }
 
 /// ------------------------------------------------------------------
+/// Break Statement Parser
+/// ------------------------------------------------------------------
+/// #### Parses break statements like `break;`
+fn parse_break_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
+    let input = skip_ignored(input);
+    let (input, _) = tag_token(Token::Break)(input)?;
+    let input = skip_ignored(input);
+    let (input, _) = tag_token(Token::Semicolon)(input)?;
+    Ok((input, Stmt::Break))
+}
+
+/// ------------------------------------------------------------------
+/// While Statement Parser
+/// ------------------------------------------------------------------
+/// #### Parses while loops like `while <condition> { <body> }`
+fn parse_while_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
+    let input = skip_ignored(input);
+    let (input, _) = tag_token(Token::While)(input)?;
+    let input = skip_ignored(input);
+
+    // Parse the condition expression
+    let (input, condition) = parse_expr(input)?;
+    let input = skip_ignored(input);
+
+    // Parse the block statement
+    let (input, body) = crate::parser::parse_block_stmt(input)?;
+
+    Ok((input, Stmt::While { condition, body }))
+}
+
+/// ------------------------------------------------------------------
 /// Type Parser
 /// ------------------------------------------------------------------
 /// #### Parses type annotations like `Int`, `Bool`, `String`, etc.
@@ -381,6 +414,96 @@ mod stmt_tests {
                     },
                 }
             );
+        }
+    }
+
+    mod while_stmt_tests {
+        use super::*;
+
+        #[test]
+        fn test_while_loop() {
+            let code = "while x < 10 { x = x + 1; }";
+            let tokens = lex(code).unwrap();
+            let result = parse_stmt(&tokens).unwrap();
+            assert_eq!(
+                result.1,
+                Stmt::While {
+                    condition: crate::ast::Expr::BinOp {
+                        left: Box::new(crate::ast::Expr::Variable("x".to_string())),
+                        op: crate::ast::BinOp::Less,
+                        right: Box::new(crate::ast::Expr::Int(10)),
+                    },
+                    body: vec![Stmt::Reassignment {
+                        name: "x".to_string(),
+                        expr: crate::ast::Expr::BinOp {
+                            left: Box::new(crate::ast::Expr::Variable("x".to_string())),
+                            op: crate::ast::BinOp::Add,
+                            right: Box::new(crate::ast::Expr::Int(1)),
+                        },
+                    }],
+                }
+            );
+        }
+
+        #[test]
+        fn test_while_with_break() {
+            let code = "while true { break; }";
+            let tokens = lex(code).unwrap();
+            let result = parse_stmt(&tokens).unwrap();
+            assert_eq!(
+                result.1,
+                Stmt::While {
+                    condition: crate::ast::Expr::Bool(true),
+                    body: vec![Stmt::Break],
+                }
+            );
+        }
+
+        #[test]
+        fn test_nested_while_loops() {
+            let code = "while x < 10 { while y < 5 { break; } x = x + 1; }";
+            let tokens = lex(code).unwrap();
+            let result = parse_stmt(&tokens).unwrap();
+            assert_eq!(
+                result.1,
+                Stmt::While {
+                    condition: crate::ast::Expr::BinOp {
+                        left: Box::new(crate::ast::Expr::Variable("x".to_string())),
+                        op: crate::ast::BinOp::Less,
+                        right: Box::new(crate::ast::Expr::Int(10)),
+                    },
+                    body: vec![
+                        Stmt::While {
+                            condition: crate::ast::Expr::BinOp {
+                                left: Box::new(crate::ast::Expr::Variable("y".to_string())),
+                                op: crate::ast::BinOp::Less,
+                                right: Box::new(crate::ast::Expr::Int(5)),
+                            },
+                            body: vec![Stmt::Break],
+                        },
+                        Stmt::Reassignment {
+                            name: "x".to_string(),
+                            expr: crate::ast::Expr::BinOp {
+                                left: Box::new(crate::ast::Expr::Variable("x".to_string())),
+                                op: crate::ast::BinOp::Add,
+                                right: Box::new(crate::ast::Expr::Int(1)),
+                            },
+                        },
+                    ],
+                }
+            );
+        }
+    }
+
+    mod break_stmt_tests {
+        use super::*;
+
+        #[test]
+        fn test_break_statement() {
+            let code = "break;";
+            let tokens = lex(code).unwrap();
+            let result = parse_stmt(&tokens).unwrap();
+            assert_eq!(result.1, Stmt::Break);
         }
     }
 }
