@@ -1,0 +1,3 @@
+if functions have no return type, they return unit.
+if else have to have semicolon.
+print has semicolon; other function calls dont.

@@ -160,6 +160,7 @@ pub fn parse(tokens: &[Token]) -> Result<Vec<Stmt>, ParserError> {
 #[cfg(test)]
 mod parser_tests {
     use super::*;
+    use crate::ast;
     use crate::ast::BinOp;
     use crate::ast::Expr;
     use crate::lexer::lex;
@@ -256,6 +257,77 @@ mod parser_tests {
                         op: BinOp::Mul,
                         right: Box::new(Expr::Int(2)),
                     },
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn mock_code_complex_function() {
+        let code = "
+fun add(a: Int, b: Int) :Int {
+    return a + b;
+}
+
+fun main() {
+    let result = add(5, 10);
+    print(\"the result is: \" + result);
+    if result > 10 {
+        print(\"the result is greater than 10\");
+    };
+}";
+        let tokens = lex(code).unwrap();
+        let result = parse(&tokens);
+        println!("{:?}", result);
+        assert!(result.is_ok());
+        let stmts = result.unwrap();
+        assert_eq!(stmts.len(), 2); // Two top-level functions
+        assert_eq!(
+            stmts,
+            vec![
+                Stmt::Fun {
+                    name: "add".to_string(),
+                    params: vec![
+                        ("a".to_string(), crate::ast::Type::Int),
+                        ("b".to_string(), crate::ast::Type::Int)
+                    ],
+                    return_type: crate::ast::Type::Int,
+                    body: vec![Stmt::Return(Some(Expr::BinOp {
+                        left: Box::new(Expr::Variable("a".to_string())),
+                        op: BinOp::Add,
+                        right: Box::new(Expr::Variable("b".to_string())),
+                    })),],
+                },
+                Stmt::Fun {
+                    name: "main".to_string(),
+                    params: vec![],
+                    return_type: ast::Type::Unit,
+                    body: vec![
+                        Stmt::Let {
+                            name: "result".to_string(),
+                            ty: None,
+                            expr: Expr::Call {
+                                function: Box::new(Expr::Variable("add".to_string())),
+                                args: vec![Expr::Int(5), Expr::Int(10)],
+                            },
+                        },
+                        Stmt::Print(Expr::BinOp {
+                            left: Box::new(Expr::String("the result is: ".to_string())),
+                            op: BinOp::Add,
+                            right: Box::new(Expr::Variable("result".to_string())),
+                        }),
+                        Stmt::Expr(Expr::IfElse {
+                            condition: Box::new(Expr::BinOp {
+                                left: Box::new(Expr::Variable("result".to_string())),
+                                op: BinOp::Greater,
+                                right: Box::new(Expr::Int(10)),
+                            }),
+                            then_branch: vec![Expr::StmtExpr(Box::new(Stmt::Print(Expr::String(
+                                "the result is greater than 10".to_string()
+                            ),)))],
+                            else_branch: None,
+                        }),
+                    ],
                 },
             ]
         );

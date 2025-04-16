@@ -78,9 +78,8 @@ fn parse_expr_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
 /// Function Statement Parser
 /// ------------------------------------------------------------------
 /// #### Parses function definitions like `fun add(a: Int, b: Int): Int { ... }`
+/// or `fun main() { ... }` with an optional return type.
 fn parse_fun_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
-    //println!("[parse_fun_stmt] Parsing function statement...");
-    //println!("[parse_fun_stmt] Current token: {:?}", input.first());
     let input = skip_ignored(input);
     let (input, _) = tag_token(Token::Fun)(input)?;
     let input = skip_ignored(input);
@@ -138,31 +137,18 @@ fn parse_fun_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
     let (input, _) = tag_token(Token::RParen)(input)?;
     let input = skip_ignored(input);
 
-    // Parse return type
-    let (input, _) = tag_token(Token::Colon)(input)?;
+    // Parse optional return type
+    let (input, return_type) = if let Some((Token::Colon, rest)) = input.split_first() {
+        let input = skip_ignored(rest);
+        let (input, ty) = parse_type(input)?;
+        (input, ty)
+    } else {
+        (input, Type::Unit) // Default to Unit type if no colon is found
+    };
     let input = skip_ignored(input);
-    let (input, return_type) = parse_type(input)?;
-    let input = skip_ignored(input);
-
-    /*
-    println!("[parse_fun_stmt] Parsing function: {:?}", name);
-    println!("[parse_fun_stmt] Parameters: {:?}", params);
-    println!("[parse_fun_stmt] Return type: {:?}", return_type);
-    println!("[parse_fun_stmt] Parsing body...");
-    */
 
     // Parse function body
     let (input, body) = crate::parser::parse_block_stmt(input)?;
-
-    /*
-    println!("[parse_fun_stmt] Function body parsed.");
-    println!("[parse_fun_stmt] Parsing complete.");
-    println!("[parse_fun_stmt] Function: {:?}", name);
-    println!("[parse_fun_stmt] Parameters: {:?}", params);
-    println!("[parse_fun_stmt] Return type: {:?}", return_type);
-    println!("[parse_fun_stmt] Body: {:?}", body);
-    println!("[parse_fun_stmt] Parsing complete.");
-    */
 
     Ok((
         input,
