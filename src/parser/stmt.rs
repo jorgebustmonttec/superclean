@@ -11,7 +11,7 @@ use nom::{IResult, Parser, branch::alt, error::ErrorKind};
 /// ----------------------------------------------------
 pub fn parse_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
     let input = skip_ignored(input);
-    println!("[parse_stmt] Current token: {:?}", input.first());
+    //println!("[parse_stmt] Current token: {:?}", input.first());
     alt((
         parse_let_stmt,
         parse_return_stmt,
@@ -23,45 +23,34 @@ pub fn parse_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
 }
 
 /// ------------------------------------------------------------------
-/// Let Statement Parser
+/// Simplified Let Statement Parser
 /// ------------------------------------------------------------------
 /// #### Parses variable declarations like `let x = 5;` or `let x: Int = 5;`
 fn parse_let_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
-    println!("[parse_let_stmt] Parsing let statement...");
-    println!("[parse_let_stmt] Current token: {:?}", input.first());
     let input = skip_ignored(input);
     let (input, _) = tag_token(Token::Let)(input)?;
     let input = skip_ignored(input);
-
-    // Parse variable name
-    let token = input
-        .first()
-        .ok_or_else(|| nom::Err::Error(nom::error::Error::new(input, ErrorKind::Tag)))?;
-
-    // Check if the token is an identifier
-    let name = if let Token::Identifier(name) = token {
-        // if it's an identifier, consume it (remove it from the input)
-        name.clone()
-    } else {
-        // if it's not an identifier, return an error
-        return Err(nom::Err::Error(nom::error::Error::new(
-            input,
-            ErrorKind::Tag,
-        )));
+    let (input, name) = match input.split_first() {
+        Some((Token::Identifier(name), rest)) => (rest, name.clone()),
+        _ => {
+            return Err(nom::Err::Error(nom::error::Error::new(
+                input,
+                ErrorKind::Tag,
+            )));
+        }
     };
+    let input = skip_ignored(input);
 
-    let mut input = &input[1..];
-    input = skip_ignored(input);
-
-    let (new_input, ty) = if let Some((Token::Colon, rest)) = input.split_first() {
+    let (input, ty) = if let Some((Token::Colon, rest)) = input.split_first() {
         let input = skip_ignored(rest);
+
         let (input, ty) = parse_type(input)?;
         (input, Some(ty))
     } else {
         (input, None)
     };
-    input = skip_ignored(new_input);
 
+    let input = skip_ignored(input);
     let (input, _) = tag_token(Token::Equal)(input)?;
     let input = skip_ignored(input);
     let (input, expr) = parse_expr(input)?;
@@ -76,12 +65,10 @@ fn parse_let_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
 /// ------------------------------------------------------------------
 /// #### Wraps expressions as standalone statements.
 fn parse_expr_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
-    println!("[parse_expr_stmt] Parsing expression statement...");
-    println!("[parse_expr_stmt] Current token: {:?}", input.first());
+    //println!("[parse_expr_stmt] Parsing expression statement...");
+    //println!("[parse_expr_stmt] Current token: {:?}", input.first());
     let input = skip_ignored(input);
     let (input, expr) = parse_expr(input)?;
-    println!("[parse_expr_stmt] Found expression: {:?}", expr);
-    println!("[parse_expr_stmt] Current token: {:?}", input.first());
     let input = skip_ignored(input);
     let (input, _) = tag_token(Token::Semicolon)(input)?;
     Ok((input, Stmt::Expr(expr)))
@@ -92,6 +79,8 @@ fn parse_expr_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
 /// ------------------------------------------------------------------
 /// #### Parses function definitions like `fun add(a: Int, b: Int): Int { ... }`
 fn parse_fun_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
+    //println!("[parse_fun_stmt] Parsing function statement...");
+    //println!("[parse_fun_stmt] Current token: {:?}", input.first());
     let input = skip_ignored(input);
     let (input, _) = tag_token(Token::Fun)(input)?;
     let input = skip_ignored(input);
@@ -155,14 +144,17 @@ fn parse_fun_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
     let (input, return_type) = parse_type(input)?;
     let input = skip_ignored(input);
 
+    /*
     println!("[parse_fun_stmt] Parsing function: {:?}", name);
     println!("[parse_fun_stmt] Parameters: {:?}", params);
     println!("[parse_fun_stmt] Return type: {:?}", return_type);
     println!("[parse_fun_stmt] Parsing body...");
+    */
 
     // Parse function body
     let (input, body) = crate::parser::parse_block_stmt(input)?;
 
+    /*
     println!("[parse_fun_stmt] Function body parsed.");
     println!("[parse_fun_stmt] Parsing complete.");
     println!("[parse_fun_stmt] Function: {:?}", name);
@@ -170,6 +162,7 @@ fn parse_fun_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
     println!("[parse_fun_stmt] Return type: {:?}", return_type);
     println!("[parse_fun_stmt] Body: {:?}", body);
     println!("[parse_fun_stmt] Parsing complete.");
+    */
 
     Ok((
         input,
@@ -187,8 +180,8 @@ fn parse_fun_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
 /// ------------------------------------------------------------------
 /// #### Parses print statements like `print(expr);`
 fn parse_print_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
-    println!("[parse_print_stmt] Parsing print statement...");
-    println!("[parse_print_stmt] Current token: {:?}", input.first());
+    //println!("[parse_print_stmt] Parsing print statement...");
+    //println!("[parse_print_stmt] Current token: {:?}", input.first());
     let input = skip_ignored(input);
     let (input, _) = tag_token(Token::Print)(input)?;
     let input = skip_ignored(input);
@@ -215,8 +208,8 @@ fn parse_print_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
 /// #### Parses return statements like `return;` or `return expr;`
 fn parse_return_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
     let input = skip_ignored(input);
-    println!("[parse_return_stmt] Parsing return statement...");
-    println!("[parse_return_stmt] Current token: {:?}", input.first());
+    //println!("[parse_return_stmt] Parsing return statement...");
+    //println!("[parse_return_stmt] Current token: {:?}", input.first());
     let (input, _) = tag_token(Token::Return)(input)?;
     let input = skip_ignored(input);
 
@@ -224,14 +217,10 @@ fn parse_return_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
     if let Ok((input, expr)) = parse_expr(input) {
         let input = skip_ignored(input);
         let (input, _) = tag_token(Token::Semicolon)(input)?;
-        println!("[parse_return_stmt] Found expression: {:?}", expr);
-        println!("[parse_return_stmt] Parsing complete.");
 
         Ok((input, Stmt::Return(Some(expr))))
     } else {
         let (input, _) = tag_token(Token::Semicolon)(input)?;
-        println!("[parse_return_stmt] No expression found.");
-        println!("[parse_return_stmt] Parsing complete.");
 
         Ok((input, Stmt::Return(None)))
     }

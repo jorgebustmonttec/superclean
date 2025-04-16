@@ -259,14 +259,20 @@ fn parse_if_else(input: Tokens) -> IResult<Tokens, Expr> {
     let input = skip_ignored(input);
     let (input, _) = tag_token(Token::If)(input)?;
     let input = skip_ignored(input);
+    println!("[parse_if_else] Parsing if-else expression...");
+    println!("[parse_if_else] Current token: {:?}", input.first());
     let (input, condition) = parse_expr(input)?;
     let input = skip_ignored(input);
+    println!("[parse_if_else] parsing block expression...");
     let (input, then_branch) = parse_block_expr(input)?;
+    println!("[parse_if_else] parsed block expression: {:?}", then_branch);
     let input = skip_ignored(input);
 
     let (input, else_branch) = if let Some((Token::Else, rest)) = input.split_first() {
         let input = skip_ignored(&rest);
+        println!("[parse_if_else] parsing else branch...");
         let (input, block) = parse_block_expr(input)?;
+        println!("[parse_if_else] parsed else branch: {:?}", block);
         (input, Some(block))
     } else {
         (input, None)

@@ -1,3 +1,10 @@
 fun complexFunction(a: Int, b: Int): Int {
-    return a + b;
+    print("inside complexFunction");
+    let result = a + b;
+    if result > 10 {
+        return result * 2;
+    } else {
+        return result +5;
+    };
+
 }

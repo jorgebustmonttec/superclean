@@ -63,6 +63,7 @@ pub fn tag_token(expected: Token) -> impl Fn(Tokens) -> IResult<Tokens, Token> {
 /// Parses a block expression, which is a sequence of expressions enclosed in braces.
 /// The block expression can contain multiple statements or expressions.
 pub fn parse_block_expr(input: Tokens) -> IResult<Tokens, Vec<Expr>> {
+    println!("[parse_block_expr] Parsing block expression...");
     let (mut input, _) = tag_token(Token::LBrace)(input)?;
     let mut exprs = Vec::new();
 
@@ -73,20 +74,25 @@ pub fn parse_block_expr(input: Tokens) -> IResult<Tokens, Vec<Expr>> {
 
         // Try parsing a statement first
         if let Ok((new_input, stmt)) = crate::parser::stmt::parse_stmt(input) {
+            println!("[parse_block_expr] Parsed statement: {:?}", stmt);
             exprs.push(Expr::StmtExpr(Box::new(stmt)));
             input = new_input;
         } else if let Ok((new_input, expr)) = parse_expr(input) {
+            println!("[parse_block_expr] Parsed expression: {:?}", expr);
             // If statement parsing fails, try parsing an expression
             exprs.push(expr);
             input = new_input;
         } else {
+            println!("[parse_block_expr] Failed to parse statement or expression.");
             return Err(nom::Err::Error(nom::error::Error::new(
                 input,
                 ErrorKind::Tag,
             )));
         }
+        input = skip_ignored(input);
     }
 
+    println!("[parse_block_expr] Finished parsing block expression.");
     let (input, _) = tag_token(Token::RBrace)(input)?;
     Ok((input, exprs))
 }
@@ -97,8 +103,8 @@ pub fn parse_block_expr(input: Tokens) -> IResult<Tokens, Vec<Expr>> {
 /// #### Parses a block of statements enclosed in `{}`
 /// Returns a `Vec<Stmt>`.
 pub fn parse_block_stmt(input: Tokens) -> IResult<Tokens, Vec<Stmt>> {
-    println!("[parse_block_stmt] Parsing block statement...");
-    println!("[parse_block_stmt] Current token: {:?}", input.first());
+    //println!("[parse_block_stmt] Parsing block statement...");
+    //println!("[parse_block_stmt] Current token: {:?}", input.first());
     let (mut input, _) = tag_token(Token::LBrace)(input)?;
     let mut stmts = Vec::new();
 
