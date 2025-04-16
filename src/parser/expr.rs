@@ -229,8 +229,8 @@ fn parse_primary(input: Tokens) -> IResult<Tokens, Expr> {
         parse_float,
         parse_bool,
         parse_string,
-        parse_identifier,
         parse_call_expr,
+        parse_identifier,
     ))
     .parse(input)
 }
@@ -365,13 +365,18 @@ fn parse_identifier(input: Tokens) -> IResult<Tokens, Expr> {
 /// #### Parses function calls like `add(5, 3)`
 fn parse_call_expr(input: Tokens) -> IResult<Tokens, Expr> {
     let input = skip_ignored(input);
-
+    println!("Parsing function call expression");
+    println!("Current token: {:?}", input.first());
     // Parse function name
-    let (input, function) = parse_primary(input)?;
+    let (input, function) = parse_identifier(input)?;
     let input = skip_ignored(input);
+    println!("Parsed function name: {:?}", function);
 
     // Parse arguments
     let (input, _) = tag_token(Token::LParen)(input)?;
+    println!("Found LParen token");
+    let input = skip_ignored(input);
+    println!("Current token after LParen: {:?}", input.first());
     let mut args = Vec::new();
     let mut input = skip_ignored(input);
 

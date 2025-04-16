@@ -13,8 +13,8 @@ pub fn parse_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
     let input = skip_ignored(input);
     println!("[parse_stmt] Current token: {:?}", input.first());
     alt((
-        parse_return_stmt,
         parse_let_stmt,
+        parse_return_stmt,
         parse_fun_stmt,
         parse_expr_stmt,
     ))
@@ -32,17 +32,27 @@ pub fn parse_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
 /// ------------------------------------------------------------------
 /// #### Parses variable declarations like `let x = 5;` or `let x: Int = 5;`
 fn parse_let_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
+    println!("[parse_let_stmt] Parsing let statement...");
+    println!("[parse_let_stmt] Current token: {:?}", input.first());
     let input = skip_ignored(input);
     let (input, _) = tag_token(Token::Let)(input)?;
     let input = skip_ignored(input);
+    println!("[parse_let_stmt] Found 'let' token.");
+    println!("[parse_let_stmt] Current token: {:?}", input.first());
 
+    // Parse variable name
     let token = input
         .first()
         .ok_or_else(|| nom::Err::Error(nom::error::Error::new(input, ErrorKind::Tag)))?;
 
+    println!("[parse_let_stmt] Found token: {:?}", token);
+
+    // Check if the token is an identifier
     let name = if let Token::Identifier(name) = token {
+        // if it's an identifier, consume it (remove it from the input)
         name.clone()
     } else {
+        // if it's not an identifier, return an error
         return Err(nom::Err::Error(nom::error::Error::new(
             input,
             ErrorKind::Tag,
@@ -75,8 +85,12 @@ fn parse_let_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
 /// ------------------------------------------------------------------
 /// #### Wraps expressions as standalone statements.
 fn parse_expr_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
+    println!("[parse_expr_stmt] Parsing expression statement...");
+    println!("[parse_expr_stmt] Current token: {:?}", input.first());
     let input = skip_ignored(input);
     let (input, expr) = parse_expr(input)?;
+    println!("[parse_expr_stmt] Found expression: {:?}", expr);
+    println!("[parse_expr_stmt] Current token: {:?}", input.first());
     let input = skip_ignored(input);
     let (input, _) = tag_token(Token::Semicolon)(input)?;
     Ok((input, Stmt::Expr(expr)))
