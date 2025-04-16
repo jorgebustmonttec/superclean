@@ -15,6 +15,7 @@ pub fn parse_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
     alt((
         parse_let_stmt,
         parse_return_stmt,
+        parse_print_stmt,
         parse_fun_stmt,
         parse_expr_stmt,
     ))
@@ -189,6 +190,39 @@ fn parse_fun_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
             body,
         },
     ))
+}
+
+/// ------------------------------------------------------------------
+/// Print Statement Parser
+/// ------------------------------------------------------------------
+/// #### Parses print statements like `print(expr);`
+fn parse_print_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
+    println!("[parse_print_stmt] Parsing print statement...");
+    println!("[parse_print_stmt] Current token: {:?}", input.first());
+    let input = skip_ignored(input);
+    let (input, _) = tag_token(Token::Print)(input)?;
+    let input = skip_ignored(input);
+    println!("[parse_print_stmt] Found 'print' token.");
+    println!("[parse_print_stmt] Current token: {:?}", input.first());
+
+    // Parse the single argument inside parentheses
+    let (input, _) = tag_token(Token::LParen)(input)?;
+    let input = skip_ignored(input);
+    println!("[parse_print_stmt] Found '('.");
+    println!("[parse_print_stmt] Current token: {:?}", input.first());
+    let (input, arg) = parse_expr(input)?;
+    let input = skip_ignored(input);
+    println!("[parse_print_stmt] Found argument: {:?}", arg);
+    println!("[parse_print_stmt] Current token: {:?}", input.first());
+    let (input, _) = tag_token(Token::RParen)(input)?;
+    let input = skip_ignored(input);
+    println!("[parse_print_stmt] Found ')'.");
+    println!("[parse_print_stmt] Current token: {:?}", input.first());
+    let (input, _) = tag_token(Token::Semicolon)(input)?;
+    let input = skip_ignored(input);
+    println!("[parse_print_stmt] Found ';'.");
+    println!("[parse_print_stmt] Current token: {:?}", input.first());
+    Ok((input, Stmt::Print(arg)))
 }
 
 /// ------------------------------------------------------------------
