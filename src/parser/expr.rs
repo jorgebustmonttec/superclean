@@ -19,7 +19,6 @@ type Tokens<'a> = &'a [Token];
 /// ### Returns
 /// - `IResult<Tokens, Expr>`: The parsed expression and remaining tokens.
 pub fn parse_expr(input: Tokens) -> IResult<Tokens, Expr> {
-    println!("[DEBUG] parse_expr: current token: {:?}", input.first());
     parse_logical_or.parse(input)
 }
 
@@ -28,23 +27,12 @@ pub fn parse_expr(input: Tokens) -> IResult<Tokens, Expr> {
 /// ------------------------------------------------------------------
 /// #### Parses logical OR (`||`) expressions. Lowest precedence.
 fn parse_logical_or(input: Tokens) -> IResult<Tokens, Expr> {
-    println!("[DEBUG] Entering parse_logical_or: {:?}", input.first());
     let input = skip_ignored(input);
-    println!(
-        "[DEBUG] parse_logical_or after skip_ignored: {:?}",
-        input.first()
-    );
     let (mut input, mut expr) = parse_logical_and.parse(input)?;
-    println!(
-        "[DEBUG] parse_logical_or after parse_logical_and: {:?}",
-        input.first()
-    );
 
     loop {
-        println!("[DEBUG] parse_logical_or loop: {:?}", input.first());
         input = skip_ignored(input);
         if let Some((Token::Or, rest)) = input.split_first() {
-            println!("[DEBUG] Found Token::Or, current token: {:?}", rest.first());
             input = skip_ignored(rest);
             let (new_input, rhs) = parse_logical_and.parse(input)?;
             input = new_input;
@@ -53,10 +41,6 @@ fn parse_logical_or(input: Tokens) -> IResult<Tokens, Expr> {
                 op: BinOp::Or,
                 right: Box::new(rhs),
             };
-            println!(
-                "[DEBUG] Updated expr in parse_logical_or: {:?}",
-                input.first()
-            );
         } else {
             break;
         }
@@ -70,26 +54,12 @@ fn parse_logical_or(input: Tokens) -> IResult<Tokens, Expr> {
 /// ------------------------------------------------------------------
 /// #### Parses logical AND (`&&`) expressions. Higher than OR.
 fn parse_logical_and(input: Tokens) -> IResult<Tokens, Expr> {
-    println!("[DEBUG] Entering parse_logical_and: {:?}", input.first());
     let input = skip_ignored(input);
-    println!(
-        "[DEBUG] parse_logical_and after skip_ignored: {:?}",
-        input.first()
-    );
     let (mut input, mut expr) = parse_comparison.parse(input)?;
-    println!(
-        "[DEBUG] parse_logical_and after parse_comparison: {:?}",
-        input.first()
-    );
 
     loop {
-        println!("[DEBUG] parse_logical_and loop: {:?}", input.first());
         input = skip_ignored(input);
         if let Some((Token::And, rest)) = input.split_first() {
-            println!(
-                "[DEBUG] Found Token::And, current token: {:?}",
-                rest.first()
-            );
             input = skip_ignored(rest);
             let (new_input, rhs) = parse_comparison.parse(input)?;
             input = new_input;
@@ -98,10 +68,6 @@ fn parse_logical_and(input: Tokens) -> IResult<Tokens, Expr> {
                 op: BinOp::And,
                 right: Box::new(rhs),
             };
-            println!(
-                "[DEBUG] Updated expr in parse_logical_and: {:?}",
-                input.first()
-            );
         } else {
             break;
         }
@@ -115,20 +81,10 @@ fn parse_logical_and(input: Tokens) -> IResult<Tokens, Expr> {
 /// ------------------------------------------------------------------
 /// #### Parses comparison expressions: ==, !=, <, <=, >, >=
 fn parse_comparison(input: Tokens) -> IResult<Tokens, Expr> {
-    println!("[DEBUG] Entering parse_comparison: {:?}", input.first());
     let input = skip_ignored(input);
-    println!(
-        "[DEBUG] parse_comparison after skip_ignored: {:?}",
-        input.first()
-    );
     let (mut input, mut expr) = parse_add_sub.parse(input)?;
-    println!(
-        "[DEBUG] parse_comparison after parse_add_sub: {:?}",
-        input.first()
-    );
 
     loop {
-        println!("[DEBUG] parse_comparison loop: {:?}", input.first());
         input = skip_ignored(input);
         let (op, rest) = match input.split_first() {
             Some((Token::EqualEqual, r)) => (Some(BinOp::Equal), r),
@@ -140,10 +96,6 @@ fn parse_comparison(input: Tokens) -> IResult<Tokens, Expr> {
             _ => break,
         };
 
-        println!(
-            "[DEBUG] Found comparison operator, current token after operator: {:?}",
-            rest.first()
-        );
         input = skip_ignored(rest);
         let (new_input, rhs) = parse_add_sub.parse(input)?;
         input = new_input;
@@ -152,10 +104,6 @@ fn parse_comparison(input: Tokens) -> IResult<Tokens, Expr> {
             op: op.unwrap(),
             right: Box::new(rhs),
         };
-        println!(
-            "[DEBUG] Updated expr in parse_comparison: {:?}",
-            input.first()
-        );
     }
 
     Ok((input, expr))
@@ -167,33 +115,15 @@ fn parse_comparison(input: Tokens) -> IResult<Tokens, Expr> {
 /// #### Parses addition and subtraction expressions. Has low precedence
 /// and is chained with multiplication and division (which has higher precedence).
 fn parse_add_sub(input: Tokens) -> IResult<Tokens, Expr> {
-    println!("[DEBUG] Entering parse_add_sub: {:?}", input.first());
     let input = skip_ignored(input);
-    println!(
-        "[DEBUG] parse_add_sub after skip_ignored: {:?}",
-        input.first()
-    );
     let (mut input, mut expr) = parse_mul_div_mod.parse(input)?;
-    println!(
-        "[DEBUG] parse_add_sub after parse_mul_div_mod: {:?}",
-        input.first()
-    );
 
     loop {
-        println!("[DEBUG] parse_add_sub loop: {:?}", input.first());
         input = skip_ignored(input);
         let op = if let Some((Token::Plus, rest)) = input.split_first() {
-            println!(
-                "[DEBUG] Found Token::Plus, current token: {:?}",
-                rest.first()
-            );
             input = rest;
             Some(BinOp::Add)
         } else if let Some((Token::Minus, rest)) = input.split_first() {
-            println!(
-                "[DEBUG] Found Token::Minus, current token: {:?}",
-                rest.first()
-            );
             input = rest;
             Some(BinOp::Sub)
         } else {
@@ -208,7 +138,6 @@ fn parse_add_sub(input: Tokens) -> IResult<Tokens, Expr> {
             op: op.unwrap(),
             right: Box::new(rhs),
         };
-        println!("[DEBUG] Updated expr in parse_add_sub: {:?}", input.first());
     }
 
     Ok((input, expr))
@@ -219,43 +148,21 @@ fn parse_add_sub(input: Tokens) -> IResult<Tokens, Expr> {
 /// ------------------------------------------------------------------
 /// #### Parses multiplication, division, and modulo operations. Has medium precedence.
 fn parse_mul_div_mod(input: Tokens) -> IResult<Tokens, Expr> {
-    println!("[DEBUG] Entering parse_mul_div_mod: {:?}", input.first());
     let input = skip_ignored(input);
-    println!(
-        "[DEBUG] parse_mul_div_mod after skip_ignored: {:?}",
-        input.first()
-    );
     let (mut input, mut expr) = parse_unary.parse(input)?;
-    println!(
-        "[DEBUG] parse_mul_div_mod after parse_unary: {:?}",
-        input.first()
-    );
 
     loop {
-        println!("[DEBUG] parse_mul_div_mod loop: {:?}", input.first());
         input = skip_ignored(input);
         let op = match input.split_first() {
             Some((Token::Star, rest)) => {
-                println!(
-                    "[DEBUG] Found Token::Star, current token: {:?}",
-                    rest.first()
-                );
                 input = rest;
                 Some(BinOp::Mul)
             }
             Some((Token::Slash, rest)) => {
-                println!(
-                    "[DEBUG] Found Token::Slash, current token: {:?}",
-                    rest.first()
-                );
                 input = rest;
                 Some(BinOp::Div)
             }
             Some((Token::Percent, rest)) => {
-                println!(
-                    "[DEBUG] Found Token::Percent, current token: {:?}",
-                    rest.first()
-                );
                 input = rest;
                 Some(BinOp::Mod)
             }
@@ -270,10 +177,6 @@ fn parse_mul_div_mod(input: Tokens) -> IResult<Tokens, Expr> {
             op: op.unwrap(),
             right: Box::new(rhs),
         };
-        println!(
-            "[DEBUG] Updated expr in parse_mul_div_mod: {:?}",
-            input.first()
-        );
     }
 
     Ok((input, expr))
@@ -285,18 +188,9 @@ fn parse_mul_div_mod(input: Tokens) -> IResult<Tokens, Expr> {
 /// #### Parses unary expressions like `-x` or `!x`.
 /// `-` becomes UnaryOp::Neg and `!` becomes UnaryOp::Not.
 fn parse_unary(input: Tokens) -> IResult<Tokens, Expr> {
-    println!("[DEBUG] Entering parse_unary: {:?}", input.first());
     let input = skip_ignored(input);
-    println!(
-        "[DEBUG] parse_unary after skip_ignored: {:?}",
-        input.first()
-    );
     match input.split_first() {
         Some((Token::Minus, rest)) => {
-            println!(
-                "[DEBUG] Found Token::Minus in parse_unary, current token: {:?}",
-                rest.first()
-            );
             let rest = skip_ignored(rest);
             let (input, expr) = parse_unary(rest)?;
             Ok((
@@ -308,10 +202,6 @@ fn parse_unary(input: Tokens) -> IResult<Tokens, Expr> {
             ))
         }
         Some((Token::Not, rest)) => {
-            println!(
-                "[DEBUG] Found Token::Not in parse_unary, current token: {:?}",
-                rest.first()
-            );
             let rest = skip_ignored(rest);
             let (input, expr) = parse_unary(rest)?;
             Ok((
@@ -322,10 +212,7 @@ fn parse_unary(input: Tokens) -> IResult<Tokens, Expr> {
                 },
             ))
         }
-        _ => {
-            println!("[DEBUG] Falling back to parse_primary in parse_unary");
-            parse_primary(input)
-        }
+        _ => parse_primary(input),
     }
 }
 
@@ -334,7 +221,6 @@ fn parse_unary(input: Tokens) -> IResult<Tokens, Expr> {
 /// ------------------------------------------------------------------
 /// #### Parses primary expressions. This includes literals and parenthesized expressions.
 fn parse_primary(input: Tokens) -> IResult<Tokens, Expr> {
-    println!("[DEBUG] Entering parse_primary: {:?}", input.first());
     alt((
         parse_parens,
         parse_if_else,
@@ -354,25 +240,12 @@ fn parse_primary(input: Tokens) -> IResult<Tokens, Expr> {
 /// #### Parses parenthesized expressions. This is used to group expressions.
 /// Parses parentheses on either side and returns the expression inside.
 fn parse_parens(input: Tokens) -> IResult<Tokens, Expr> {
-    println!("[DEBUG] Entering parse_parens: {:?}", input.first());
     let input = skip_ignored(input);
     let (input, _) = tag_token(Token::LParen)(input)?;
-    println!(
-        "[DEBUG] parse_parens found LParen, current token: {:?}",
-        input.first()
-    );
     let input = skip_ignored(input);
     let (input, expr) = parse_expr(input)?;
-    println!(
-        "[DEBUG] parse_parens parsed inner expr, current token: {:?}",
-        input.first()
-    );
     let input = skip_ignored(input);
     let (input, _) = tag_token(Token::RParen)(input)?;
-    println!(
-        "[DEBUG] parse_parens found RParen, current token: {:?}",
-        input.first()
-    );
     Ok((input, expr))
 }
 
@@ -383,32 +256,15 @@ fn parse_parens(input: Tokens) -> IResult<Tokens, Expr> {
 /// uses the `parse_expr` function to parse the condition and branches.
 /// The branches are expected to be block expressions.
 fn parse_if_else(input: Tokens) -> IResult<Tokens, Expr> {
-    println!("[DEBUG] Entering parse_if_else: {:?}", input.first());
     let input = skip_ignored(input);
     let (input, _) = tag_token(Token::If)(input)?;
-    println!(
-        "[DEBUG] parse_if_else found If, current token: {:?}",
-        input.first()
-    );
     let input = skip_ignored(input);
     let (input, condition) = parse_expr(input)?;
-    println!(
-        "[DEBUG] parse_if_else parsed condition, current token: {:?}",
-        input.first()
-    );
     let input = skip_ignored(input);
     let (input, then_branch) = parse_block_expr(input)?;
-    println!(
-        "[DEBUG] parse_if_else parsed then_branch, current token: {:?}",
-        input.first()
-    );
     let input = skip_ignored(input);
 
     let (input, else_branch) = if let Some((Token::Else, rest)) = input.split_first() {
-        println!(
-            "[DEBUG] parse_if_else found Else, current token: {:?}",
-            rest.first()
-        );
         let input = skip_ignored(&rest);
         let (input, block) = parse_block_expr(input)?;
         (input, Some(block))
@@ -431,24 +287,13 @@ fn parse_if_else(input: Tokens) -> IResult<Tokens, Expr> {
 /// ------------------------------------------------------------------
 /// #### Parses integer literals.
 fn parse_int(input: Tokens) -> IResult<Tokens, Expr> {
-    println!("[DEBUG] Entering parse_int: {:?}", input.first());
     let input = skip_ignored(input);
     match input.split_first() {
-        Some((Token::Integer(n), rest)) => {
-            println!(
-                "[DEBUG] parse_int found Integer {} current token: {:?}",
-                n,
-                rest.first()
-            );
-            Ok((rest, Expr::Int(*n)))
-        }
-        _ => {
-            println!("[DEBUG] parse_int error: token not an Integer");
-            Err(nom::Err::Error(nom::error::Error::new(
-                input,
-                ErrorKind::Tag,
-            )))
-        }
+        Some((Token::Integer(n), rest)) => Ok((rest, Expr::Int(*n))),
+        _ => Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            ErrorKind::Tag,
+        ))),
     }
 }
 
@@ -457,24 +302,13 @@ fn parse_int(input: Tokens) -> IResult<Tokens, Expr> {
 /// ------------------------------------------------------------------
 /// #### Parses float literals.
 fn parse_float(input: Tokens) -> IResult<Tokens, Expr> {
-    println!("[DEBUG] Entering parse_float: {:?}", input.first());
     let input = skip_ignored(input);
     match input.split_first() {
-        Some((Token::Float(f), rest)) => {
-            println!(
-                "[DEBUG] parse_float found Float {} current token: {:?}",
-                f,
-                rest.first()
-            );
-            Ok((rest, Expr::Float(*f)))
-        }
-        _ => {
-            println!("[DEBUG] parse_float error: token not a Float");
-            Err(nom::Err::Error(nom::error::Error::new(
-                input,
-                ErrorKind::Tag,
-            )))
-        }
+        Some((Token::Float(f), rest)) => Ok((rest, Expr::Float(*f))),
+        _ => Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            ErrorKind::Tag,
+        ))),
     }
 }
 
@@ -483,30 +317,14 @@ fn parse_float(input: Tokens) -> IResult<Tokens, Expr> {
 /// ------------------------------------------------------------------
 /// #### Parses boolean literals.
 fn parse_bool(input: Tokens) -> IResult<Tokens, Expr> {
-    println!("[DEBUG] Entering parse_bool: {:?}", input.first());
     let input = skip_ignored(input);
     match input.split_first() {
-        Some((Token::True, rest)) => {
-            println!(
-                "[DEBUG] parse_bool found True, current token: {:?}",
-                rest.first()
-            );
-            Ok((rest, Expr::Bool(true)))
-        }
-        Some((Token::False, rest)) => {
-            println!(
-                "[DEBUG] parse_bool found False, current token: {:?}",
-                rest.first()
-            );
-            Ok((rest, Expr::Bool(false)))
-        }
-        _ => {
-            println!("[DEBUG] parse_bool error: token not a boolean");
-            Err(nom::Err::Error(nom::error::Error::new(
-                input,
-                ErrorKind::Tag,
-            )))
-        }
+        Some((Token::True, rest)) => Ok((rest, Expr::Bool(true))),
+        Some((Token::False, rest)) => Ok((rest, Expr::Bool(false))),
+        _ => Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            ErrorKind::Tag,
+        ))),
     }
 }
 
@@ -515,24 +333,13 @@ fn parse_bool(input: Tokens) -> IResult<Tokens, Expr> {
 /// ------------------------------------------------------------------
 /// #### Parses string literals like `"hello"`
 fn parse_string(input: Tokens) -> IResult<Tokens, Expr> {
-    println!("[DEBUG] Entering parse_string: {:?}", input.first());
     let input = skip_ignored(input);
     match input.split_first() {
-        Some((Token::StringLiteral(s), rest)) => {
-            println!(
-                "[DEBUG] parse_string found StringLiteral {} current token: {:?}",
-                s,
-                rest.first()
-            );
-            Ok((rest, Expr::String(s.clone())))
-        }
-        _ => {
-            println!("[DEBUG] parse_string error: token not a StringLiteral");
-            Err(nom::Err::Error(nom::error::Error::new(
-                input,
-                ErrorKind::Tag,
-            )))
-        }
+        Some((Token::StringLiteral(s), rest)) => Ok((rest, Expr::String(s.clone()))),
+        _ => Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            ErrorKind::Tag,
+        ))),
     }
 }
 
@@ -541,24 +348,13 @@ fn parse_string(input: Tokens) -> IResult<Tokens, Expr> {
 /// ------------------------------------------------------------------
 /// #### Parses bare identifiers like `x`, `foo`, etc.
 fn parse_identifier(input: Tokens) -> IResult<Tokens, Expr> {
-    println!("[DEBUG] Entering parse_identifier: {:?}", input.first());
     let input = skip_ignored(input);
     match input.split_first() {
-        Some((Token::Identifier(name), rest)) => {
-            println!(
-                "[DEBUG] parse_identifier found Identifier {} current token: {:?}",
-                name,
-                rest.first()
-            );
-            Ok((rest, Expr::Variable(name.clone())))
-        }
-        _ => {
-            println!("[DEBUG] parse_identifier error: token not an Identifier");
-            Err(nom::Err::Error(nom::error::Error::new(
-                input,
-                ErrorKind::Tag,
-            )))
-        }
+        Some((Token::Identifier(name), rest)) => Ok((rest, Expr::Variable(name.clone()))),
+        _ => Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            ErrorKind::Tag,
+        ))),
     }
 }
 
@@ -567,34 +363,15 @@ fn parse_identifier(input: Tokens) -> IResult<Tokens, Expr> {
 /// ------------------------------------------------------------------
 /// #### Parses function calls like `add(5, 3)`
 fn parse_call_expr(input: Tokens) -> IResult<Tokens, Expr> {
-    println!(
-        "[DEBUG] Entering parse_call_expr: current token: {:?}",
-        input.first()
-    );
-    // Parse function name
     let (input, function) = parse_identifier(input)?;
-    println!(
-        "[DEBUG] parse_call_expr parsed function name: {:?}",
-        function
-    );
     let input = skip_ignored(input);
     let (input, _) = tag_token(Token::LParen)(input)?;
-    println!(
-        "[DEBUG] parse_call_expr found LParen, current token: {:?}",
-        input.first()
-    );
     let input = skip_ignored(input);
-    println!(
-        "[DEBUG] parse_call_expr after LParen, current token: {:?}",
-        input.first()
-    );
     let mut args = Vec::new();
     let mut input = skip_ignored(input);
 
     while let Some(tok) = input.first() {
-        println!("[DEBUG] parse_call_expr loop, current token: {:?}", tok);
         if *tok == Token::RParen {
-            println!("[DEBUG] parse_call_expr reached RParen");
             break;
         }
 
@@ -604,10 +381,6 @@ fn parse_call_expr(input: Tokens) -> IResult<Tokens, Expr> {
 
         // Check for comma or closing parenthesis
         if let Some((Token::Comma, rest)) = input.split_first() {
-            println!(
-                "[DEBUG] parse_call_expr found Comma, current token: {:?}",
-                rest.first()
-            );
             input = skip_ignored(rest);
         } else {
             break;
@@ -615,10 +388,6 @@ fn parse_call_expr(input: Tokens) -> IResult<Tokens, Expr> {
     }
 
     let (input, _) = tag_token(Token::RParen)(input)?;
-    println!(
-        "[DEBUG] parse_call_expr completed, current token: {:?}",
-        input.first()
-    );
 
     Ok((
         input,

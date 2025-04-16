@@ -104,24 +104,18 @@ pub fn parse_block_stmt(input: Tokens) -> IResult<Tokens, Vec<Stmt>> {
 
     while let Some(tok) = input.first() {
         input = skip_ignored(input);
-        println!("[parse_block_stmt[while] Current token: {:?}", tok);
 
         if *tok == Token::RBrace {
-            println!("[parse_block_stmt] Found RBrace, breaking out of loop.");
             break; // Stop parsing when we encounter RBrace
         }
 
         let (new_input, stmt) = parse_stmt(input)?;
-        println!("[parse_block_stmt] Parsed statement: {:?}", stmt);
-        println!("[parse_block_stmt] Remaining tokens: {:?}", new_input);
+
         stmts.push(stmt);
         input = new_input;
         input = skip_ignored(input);
     }
 
-    println!("[parse_block_stmt] Finished parsing block statement.");
-    println!("[parse_block_stmt] Remaining tokens: {:?}", input);
-    println!("[parse_block_stmt] Parsed statements: {:?}", stmts);
     let (input, _) = tag_token(Token::RBrace)(input)?;
     Ok((input, stmts))
 }

@@ -20,12 +20,6 @@ pub fn parse_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
         parse_expr_stmt,
     ))
     .parse(input)
-    .or_else(|_| {
-        Err(nom::Err::Error(nom::error::Error::new(
-            input,
-            ErrorKind::Tag,
-        )))
-    })
 }
 
 /// ------------------------------------------------------------------
@@ -38,15 +32,11 @@ fn parse_let_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
     let input = skip_ignored(input);
     let (input, _) = tag_token(Token::Let)(input)?;
     let input = skip_ignored(input);
-    println!("[parse_let_stmt] Found 'let' token.");
-    println!("[parse_let_stmt] Current token: {:?}", input.first());
 
     // Parse variable name
     let token = input
         .first()
         .ok_or_else(|| nom::Err::Error(nom::error::Error::new(input, ErrorKind::Tag)))?;
-
-    println!("[parse_let_stmt] Found token: {:?}", token);
 
     // Check if the token is an identifier
     let name = if let Token::Identifier(name) = token {
@@ -202,26 +192,20 @@ fn parse_print_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
     let input = skip_ignored(input);
     let (input, _) = tag_token(Token::Print)(input)?;
     let input = skip_ignored(input);
-    println!("[parse_print_stmt] Found 'print' token.");
-    println!("[parse_print_stmt] Current token: {:?}", input.first());
 
     // Parse the single argument inside parentheses
     let (input, _) = tag_token(Token::LParen)(input)?;
     let input = skip_ignored(input);
-    println!("[parse_print_stmt] Found '('.");
-    println!("[parse_print_stmt] Current token: {:?}", input.first());
+
     let (input, arg) = parse_expr(input)?;
     let input = skip_ignored(input);
-    println!("[parse_print_stmt] Found argument: {:?}", arg);
-    println!("[parse_print_stmt] Current token: {:?}", input.first());
+
     let (input, _) = tag_token(Token::RParen)(input)?;
     let input = skip_ignored(input);
-    println!("[parse_print_stmt] Found ')'.");
-    println!("[parse_print_stmt] Current token: {:?}", input.first());
+
     let (input, _) = tag_token(Token::Semicolon)(input)?;
     let input = skip_ignored(input);
-    println!("[parse_print_stmt] Found ';'.");
-    println!("[parse_print_stmt] Current token: {:?}", input.first());
+
     Ok((input, Stmt::Print(arg)))
 }
 
