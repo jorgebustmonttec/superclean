@@ -79,3 +79,8 @@ pub fn lex_or(input: &str) -> IResult<&str, Token> {
 pub fn lex_not(input: &str) -> IResult<&str, Token> {
     char('!').map(|_| Token::Not).parse(input)
 }
+
+/// Lexes the `.` character as a `Token::Dot`.
+pub fn lex_dot(input: &str) -> IResult<&str, Token> {
+    char('.').map(|_| Token::Dot).parse(input)
+}

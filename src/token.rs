@@ -48,6 +48,7 @@ pub enum Token {
     And,
     Or,
     Not,
+    Dot,
 
     // Delimiters
     LParen,
@@ -118,7 +119,8 @@ impl Token {
             | Token::RBrace
             | Token::LBracket
             | Token::RBracket
-            | Token::Not => 1,
+            | Token::Not
+            | Token::Dot => 1,
 
             Token::EqualEqual
             | Token::NotEqual
@@ -128,6 +130,10 @@ impl Token {
             | Token::Or => 2,
 
             Token::EOF => 0,
+
+            _ => {
+                panic!("Unexpected token type: {:?}", self);
+            }
         }
     }
 }
