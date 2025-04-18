@@ -1,3 +1,5 @@
+DISCLAIMER I MADE A LOT OF THE DOCUMENTATION LAST MINUTE WITH AI SO IT MAY BE OFF. NOTES.TXT HAS SOME IMPORTANT STUFF. DO SH RUN.SH TO RUN OFF TEST.SCLEAN AND SH.TEST.SH TO RUN UNIT TESTS.
+
 # Superclean
 
 ## 🧼 Introduction (1.0)
@@ -39,10 +41,36 @@ cargo run -- path/to/file.sclean
 
 ## 📄 Project Structure
 
-- `src/` – language implementation
-- `docs/` – language specification and documentation
-- `examples/` – sample Superclean programs
-- `tests/` – automated tests
+The project is organized into the following directories and files:
+
+```
+superclean/
+├── src/
+│   ├── main.rs          # Entry point for the interpreter
+│   ├── ast.rs           # Abstract syntax tree definitions
+│   ├── token.rs         # Token definitions for the lexer
+│   ├── lexer/           # Lexer implementation
+│   │   ├── mod.rs       # Lexer module
+│   ├── parser/          # Parser implementation
+│   │   ├── mod.rs       # Parser module
+│   │   ├── expr.rs      # Expression parsing
+│   │   ├── stmt.rs      # Statement parsing
+│   ├── evaluator/       # Evaluator implementation
+│   │   ├── mod.rs       # Evaluator module
+│   │   ├── expr.rs      # Expression evaluation
+│   │   ├── stmt.rs      # Statement evaluation
+│   ├── type_checker.rs  # Type checker implementation
+├── docs/                # Documentation
+│   ├── spec.md          # Language specification
+│   ├── start.md         # Tutorial and exercises
+│   ├── std.md           # Standard library reference
+│   ├── checklist.md     # Project checklist
+│   ├── notes.txt        # Development notes
+├── examples/            # Example Superclean programs
+│   ├── showcase.sclean  # Comprehensive feature showcase
+├── test.sclean          # Test program for manual testing
+├── README.md            # Project README
+```
 
 ## 📚 Documentation
 
