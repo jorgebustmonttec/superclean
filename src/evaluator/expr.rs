@@ -8,6 +8,13 @@ pub fn eval_expr(expr: &Expr, env: &mut Env) -> Result<Value, String> {
         Expr::Float(value) => Ok(Value::Float(*value)),
         Expr::Bool(value) => Ok(Value::Bool(*value)),
         Expr::String(value) => Ok(Value::String(value.clone())),
+        Expr::Variable(name) => {
+            if let Some(value) = env.get(name) {
+                Ok(value.clone())
+            } else {
+                Err(format!("Variable '{}' not found", name))
+            }
+        }
         Expr::BinOp { left, op, right } => eval_binop(left, op, right, env),
         Expr::UnaryOp { op, expr } => eval_unary_op(op, expr, env),
         Expr::Tuple(elements) => eval_tuple(elements, env),
