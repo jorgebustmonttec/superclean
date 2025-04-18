@@ -1,6 +1,7 @@
-fun add(a: Int, b: Int): Int {
-    return a + b;
+fun function(a: Int, b: Int): Int {
+    print("Inside function");
+    return a+b;
 }
 
-let result = add(5, 3);
+let result = function(5, 3);
 print("The result is: " + result);

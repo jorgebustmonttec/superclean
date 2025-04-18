@@ -24,6 +24,7 @@ pub fn eval_expr(expr: &Expr, env: &mut Env) -> Result<Value, String> {
             then_branch,
             else_branch,
         } => eval_if_else(condition, then_branch, else_branch, env),
+        Expr::Call { function, args } => eval_call(function, args, env),
         _ => Err(format!("Unsupported expression: {:?}", expr)),
     }
 }
@@ -174,6 +175,64 @@ fn eval_if_else(
     }
 
     Ok(Value::Unit) // Default to Unit if no meaningful value is returned
+}
+
+/// Evaluates a function call.
+fn eval_call(function: &Expr, args: &[Expr], env: &mut Env) -> Result<Value, String> {
+    // Evaluate the function expression
+    let func_name = match function {
+        Expr::Variable(name) => name,
+        _ => return Err(format!("Expected a function name, found {:?}", function)),
+    };
+
+    // Retrieve the function from the environment
+    let func = match env.get_function(func_name) {
+        Some(f) => f.clone(),
+        None => return Err(format!("Function '{}' not found", func_name)),
+    };
+
+    // Ensure the number of arguments matches the number of parameters
+    if func.params.len() != args.len() {
+        return Err(format!(
+            "Function '{}' expected {} arguments but got {}",
+            func_name,
+            func.params.len(),
+            args.len()
+        ));
+    }
+
+    //println!("[call] all checks successful");
+
+    // Create a new environment for the function call
+    let mut func_env = env.clone();
+
+    //println!("[call] new environment created");
+
+    // Bind arguments to parameters in the new environment
+    for ((param_name, _param_type), arg_expr) in func.params.iter().zip(args.iter()) {
+        //println!( "[call] binding argument {:?} to parameter {}", arg_expr, param_name);
+        let arg_value = eval_expr(arg_expr, env)?;
+        func_env.set(param_name.clone(), arg_value);
+    }
+    //println!("[call] arguments bound successfully");
+    // Evaluate the function body
+    for stmt in &func.body {
+        //println!("[call] evaluating statement {:?}", stmt);
+        if let Some(value) = eval_stmt(stmt, &mut func_env)? {
+            //println!("[call] statement evaluated to {:?}", value);
+            return Ok(value); // Return the value if a return statement is encountered
+        }
+    }
+
+    // If no return statement is encountered, return Unit only if the function's return type is Unit
+    if func.return_type == crate::ast::Type::Unit {
+        Ok(Value::Unit)
+    } else {
+        Err(format!(
+            "Function '{}' did not return a value as expected",
+            func_name
+        ))
+    }
 }
 
 /// Converts a `Value` to a string for concatenation.

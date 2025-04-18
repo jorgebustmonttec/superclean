@@ -17,7 +17,8 @@ pub enum Value {
     Unit,
     Tuple(Vec<Value>),
     Function(Function),
-    Break, // Added Break variant
+    Break,                      // Added Break variant
+    Return(Option<Box<Value>>), // Added Return variant
 }
 
 /// Function representation

@@ -16,6 +16,7 @@ pub fn eval_stmt(stmt: &Stmt, env: &mut Env) -> Result<Option<Value>, String> {
         } => eval_fun_decl(name, params, return_type, body, env),
         Stmt::While { condition, body } => eval_while_stmt(condition, body, env),
         Stmt::Break => Ok(Some(Value::Break)), // Return Break value
+        Stmt::Return(expr) => eval_return_stmt(expr, env),
         _ => Ok(None),
     }
 }
@@ -96,6 +97,17 @@ fn eval_while_stmt(
         }
     }
     Ok(None) // `while` loops always return `Unit`
+}
+
+/// Evaluates a `return` statement by evaluating its expression and returning the value.
+fn eval_return_stmt(
+    expr: &Option<crate::ast::Expr>,
+    env: &mut Env,
+) -> Result<Option<Value>, String> {
+    match expr {
+        Some(expr) => Ok(Some(eval_expr(expr, env)?)), // Evaluate the expression and return its value
+        None => Ok(Some(Value::Unit)),                 // Return Unit if no expression is provided
+    }
 }
 
 /// Converts a `Value` to a string for printing.
