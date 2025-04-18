@@ -14,6 +14,8 @@ pub fn eval_stmt(stmt: &Stmt, env: &mut Env) -> Result<Option<Value>, String> {
             return_type,
             body,
         } => eval_fun_decl(name, params, return_type, body, env),
+        Stmt::While { condition, body } => eval_while_stmt(condition, body, env),
+        Stmt::Break => Err("Break statement outside of a loop".to_string()),
         _ => Ok(None),
     }
 }
@@ -65,6 +67,47 @@ fn eval_fun_decl(
     };
     env.add_function(name.clone(), function);
     Ok(None)
+}
+
+/// Evaluates a `while` loop by repeatedly evaluating the condition and executing the body.
+fn eval_while_stmt(
+    condition: &crate::ast::Expr,
+    body: &Vec<Stmt>,
+    env: &mut Env,
+) -> Result<Option<Value>, String> {
+    println!("[while] Starting while loop");
+    let mut is_infinite_warning_printed = false;
+
+    loop {
+        println!("[while] Evaluating condition");
+        // Evaluate the condition
+        let condition_value = eval_expr(condition, env)?;
+        match condition_value {
+            Value::Bool(true) => {
+                println!("[while] Condition is true, executing body");
+                // Print a warning once if the loop is infinite
+                if !is_infinite_warning_printed {
+                    println!("Warning: Potential infinite loop detected.");
+                    is_infinite_warning_printed = true;
+                }
+
+                // Execute the body
+                for stmt in body {
+                    println!("[while] Executing statement: {:?}", stmt);
+                    if let Stmt::Break = stmt {
+                        println!("[while] Break statement encountered, exiting loop");
+                        return Ok(None); // Exit the loop on `break`
+                    }
+
+                    eval_stmt(stmt, env)?;
+                }
+            }
+            Value::Bool(false) => break, // Exit the loop when the condition is false
+            _ => return Err("Condition in while loop must evaluate to a Bool".to_string()),
+        }
+    }
+
+    Ok(None) // `while` loops always return `Unit`
 }
 
 /// Converts a `Value` to a string for printing.
@@ -286,6 +329,91 @@ mod stmt_tests {
                     return_type: Type::Unit,
                     body: vec![Stmt::Print(Expr::String("Hello, world!".to_string()))],
                 }
+            );
+        }
+    }
+
+    mod while_stmt {
+        use super::*;
+
+        #[test]
+        fn while_loop_with_condition() {
+            let mut env = Env::new();
+            env.set("x".to_string(), Value::Int(0));
+            let stmt = Stmt::While {
+                condition: Expr::BinOp {
+                    left: Box::new(Expr::Variable("x".to_string())),
+                    op: crate::ast::BinOp::Less,
+                    right: Box::new(Expr::Int(3)),
+                },
+                body: vec![Stmt::Reassignment {
+                    name: "x".to_string(),
+                    expr: Expr::BinOp {
+                        left: Box::new(Expr::Variable("x".to_string())),
+                        op: crate::ast::BinOp::Add,
+                        right: Box::new(Expr::Int(1)),
+                    },
+                }],
+            };
+            let result = eval_stmt(&stmt, &mut env);
+            assert!(result.is_ok());
+            assert_eq!(env.get("x"), Some(&Value::Int(3)));
+        }
+
+        #[test]
+        fn while_loop_with_break() {
+            let mut env = Env::new();
+            env.set("x".to_string(), Value::Int(0));
+            let stmt = Stmt::While {
+                condition: Expr::Bool(true),
+                body: vec![
+                    Stmt::Reassignment {
+                        name: "x".to_string(),
+                        expr: Expr::BinOp {
+                            left: Box::new(Expr::Variable("x".to_string())),
+                            op: crate::ast::BinOp::Add,
+                            right: Box::new(Expr::Int(1)),
+                        },
+                    },
+                    Stmt::Expr(Expr::IfElse {
+                        condition: Box::new(Expr::BinOp {
+                            left: Box::new(Expr::Variable("x".to_string())),
+                            op: crate::ast::BinOp::Equal,
+                            right: Box::new(Expr::Int(5)),
+                        }),
+                        then_branch: vec![Expr::StmtExpr(Box::new(Stmt::Break))],
+                        else_branch: None,
+                    }),
+                ],
+            };
+            let result = eval_stmt(&stmt, &mut env);
+            assert!(result.is_ok());
+            assert_eq!(env.get("x"), Some(&Value::Int(5)));
+        }
+
+        #[test]
+        fn while_loop_with_false_condition() {
+            let mut env = Env::new();
+            let stmt = Stmt::While {
+                condition: Expr::Bool(false),
+                body: vec![Stmt::Print(Expr::String("This won't run".to_string()))],
+            };
+            let result = eval_stmt(&stmt, &mut env);
+            assert!(result.is_ok());
+        }
+
+        #[test]
+        fn while_loop_invalid_condition() {
+            let mut env = Env::new();
+            let stmt = Stmt::While {
+                condition: Expr::Int(1), // Invalid condition type
+                body: vec![Stmt::Print(Expr::String("This won't run".to_string()))],
+            };
+            let result = eval_stmt(&stmt, &mut env);
+            assert!(result.is_err());
+            assert_eq!(
+                result.unwrap_err(),
+                "Condition in while loop must evaluate to a Bool"
             );
         }
     }
