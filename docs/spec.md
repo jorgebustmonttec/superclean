@@ -9,7 +9,7 @@
 Below is a summary of all token types in Superclean:
 
 | Token          | Example                         | Description                         |
-| -------------- | ------------------------------- | ----------------------------------- | --- | ------------------- |
+| -------------- | ------------------------------- | ----------------------------------- |
 | Identifier     | `foo123`                        | Names of variables or functions     |
 | Integer        | `42`                            | Integer literals                    |
 | Float          | `3.14`                          | Floating-point literals             |
@@ -34,7 +34,7 @@ Below is a summary of all token types in Superclean:
 | LessEqual      | `<=`                            | Less than or equal                  |
 | GreaterEqual   | `>=`                            | Greater than or equal               |
 | Logical AND    | `&&`                            | Logical AND operator                |
-| Logical OR     | `                               |                                     | `   | Logical OR operator |
+| Logical OR     | `                               |                                     |
 | Not            | `!`                             | Logical NOT operator                |
 | Dot            | `.`                             | Member or tuple access              |
 | Delimiters     | `(`, `)`, `{`, `}`, `;`, `:`    | Grouping, code blocks, etc.         |
