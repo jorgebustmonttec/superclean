@@ -2,21 +2,36 @@
 
 ## 4.1 Getting Started Tutorial (100 pts)
 
-> **TODO**: Write a short tutorial guiding a new user.
-
 ```superclean
+// Variable declaration
 let x: Int = 5;
 
+// Function definition
 fun add(a: Int, b: Int): Int {
     return a + b;
 }
 
+// Print statement
 print(add(x, 3));
+
+// If-else expression
+if x > 3 {
+    print("x is greater than 3");
+} else {
+    print("x is less than or equal to 3");
+}
+
+// While loop
+let counter: Int = 0;
+while counter < 5 {
+    print(counter);
+    counter = counter + 1;
+}
 ```
 
-## 4.2 Five Programming Exercises (100 pts)
+---
 
-> **TODO**: Add problem + solution code for each.
+## 4.2 Five Programming Exercises (100 pts)
 
 ### Example: Fibonacci
 
@@ -32,3 +47,9 @@ fun fib(n: Int): Int {
     return fib(n - 1) + fib(n - 2);
 }
 ```
+
+---
+
+### **TODOs for Future Iterations**
+
+- Add examples for lists and `for` loops once implemented.
