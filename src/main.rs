@@ -50,7 +50,7 @@ fn main() {
 
     // Step 3: Type Checking
     println!("\n== Type Checking ==");
-    let type_check_env = match type_check_program(&stmts) {
+    let _type_check_env = match type_check_program(&stmts) {
         Ok(env) => {
             println!("Type Checking Successful!");
             println!("Environment:\n{:#?}", env);

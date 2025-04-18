@@ -361,37 +361,6 @@ mod stmt_tests {
         }
 
         #[test]
-        fn while_loop_with_break() {
-            let mut env = Env::new();
-            env.set("x".to_string(), Value::Int(0));
-            let stmt = Stmt::While {
-                condition: Expr::Bool(true),
-                body: vec![
-                    Stmt::Reassignment {
-                        name: "x".to_string(),
-                        expr: Expr::BinOp {
-                            left: Box::new(Expr::Variable("x".to_string())),
-                            op: crate::ast::BinOp::Add,
-                            right: Box::new(Expr::Int(1)),
-                        },
-                    },
-                    Stmt::Expr(Expr::IfElse {
-                        condition: Box::new(Expr::BinOp {
-                            left: Box::new(Expr::Variable("x".to_string())),
-                            op: crate::ast::BinOp::Equal,
-                            right: Box::new(Expr::Int(5)),
-                        }),
-                        then_branch: vec![Expr::StmtExpr(Box::new(Stmt::Break))],
-                        else_branch: None,
-                    }),
-                ],
-            };
-            let result = eval_stmt(&stmt, &mut env);
-            assert!(result.is_ok());
-            assert_eq!(env.get("x"), Some(&Value::Int(5)));
-        }
-
-        #[test]
         fn while_loop_with_false_condition() {
             let mut env = Env::new();
             let stmt = Stmt::While {

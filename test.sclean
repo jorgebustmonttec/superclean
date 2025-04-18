@@ -3,5 +3,11 @@ fun function(a: Int, b: Int): Int {
     return a+b;
 }
 
-let result = function(5, 3);
-print("The result is: " + result);
+let x = function(2, 8);
+
+while x < 10 {
+    print(x);
+    x = x + 1;
+}
+
+print("x is now: " + x);

@@ -1,5 +1,6 @@
 use super::{Env, Value, eval_stmt};
-use crate::ast::{BinOp, Expr, Stmt, UnaryOp}; // Added Stmt
+use crate::ast::{BinOp, Expr, Stmt, Type, UnaryOp}; // Added Stmt
+use crate::evaluator::Function; // Added Function
 
 /// Evaluates an expression and returns its runtime value.
 pub fn eval_expr(expr: &Expr, env: &mut Env) -> Result<Value, String> {
@@ -810,6 +811,164 @@ mod eval_test {
                 result,
                 Err("Condition in if-else must evaluate to a Bool".to_string())
             );
+        }
+    }
+
+    mod function_calls {
+        use super::*;
+
+        #[test]
+        fn test_simple_function_call() {
+            let mut env = Env::new();
+            env.add_function(
+                "add".to_string(),
+                Function {
+                    params: vec![("a".to_string(), Type::Int), ("b".to_string(), Type::Int)],
+                    return_type: Type::Int,
+                    body: vec![Stmt::Return(Some(Expr::BinOp {
+                        left: Box::new(Expr::Variable("a".to_string())),
+                        op: crate::ast::BinOp::Add,
+                        right: Box::new(Expr::Variable("b".to_string())),
+                    }))],
+                },
+            );
+
+            let expr = Expr::Call {
+                function: Box::new(Expr::Variable("add".to_string())),
+                args: vec![Expr::Int(2), Expr::Int(3)],
+            };
+
+            let result = eval_expr(&expr, &mut env);
+            assert_eq!(result, Ok(Value::Int(5)));
+        }
+
+        #[test]
+        fn test_function_with_unit_return() {
+            let mut env = Env::new();
+            env.add_function(
+                "greet".to_string(),
+                Function {
+                    params: vec![],
+                    return_type: Type::Unit,
+                    body: vec![Stmt::Print(Expr::String("Hello, world!".to_string()))],
+                },
+            );
+
+            let expr = Expr::Call {
+                function: Box::new(Expr::Variable("greet".to_string())),
+                args: vec![],
+            };
+
+            let result = eval_expr(&expr, &mut env);
+            assert_eq!(result, Ok(Value::Unit));
+        }
+
+        #[test]
+        fn test_function_with_multiple_calls() {
+            let mut env = Env::new();
+            env.add_function(
+                "multiply".to_string(),
+                Function {
+                    params: vec![("a".to_string(), Type::Int), ("b".to_string(), Type::Int)],
+                    return_type: Type::Int,
+                    body: vec![Stmt::Return(Some(Expr::BinOp {
+                        left: Box::new(Expr::Variable("a".to_string())),
+                        op: crate::ast::BinOp::Mul,
+                        right: Box::new(Expr::Variable("b".to_string())),
+                    }))],
+                },
+            );
+
+            let expr1 = Expr::Call {
+                function: Box::new(Expr::Variable("multiply".to_string())),
+                args: vec![Expr::Int(2), Expr::Int(3)],
+            };
+
+            let expr2 = Expr::Call {
+                function: Box::new(Expr::Variable("multiply".to_string())),
+                args: vec![Expr::Int(4), Expr::Int(5)],
+            };
+
+            let expr3 = Expr::Call {
+                function: Box::new(Expr::Variable("multiply".to_string())),
+                args: vec![expr1.clone(), expr2.clone()],
+            };
+
+            let result1 = eval_expr(&expr1, &mut env);
+            let result2 = eval_expr(&expr2, &mut env);
+            let result3 = eval_expr(&expr3, &mut env);
+
+            assert_eq!(result1, Ok(Value::Int(6)));
+            assert_eq!(result2, Ok(Value::Int(20)));
+            assert_eq!(result3, Ok(Value::Int(120)));
+        }
+
+        #[test]
+        fn test_function_with_no_parameters() {
+            let mut env = Env::new();
+            env.add_function(
+                "get_five".to_string(),
+                Function {
+                    params: vec![],
+                    return_type: Type::Int,
+                    body: vec![Stmt::Return(Some(Expr::Int(5)))],
+                },
+            );
+
+            let expr = Expr::Call {
+                function: Box::new(Expr::Variable("get_five".to_string())),
+                args: vec![],
+            };
+
+            let result = eval_expr(&expr, &mut env);
+            assert_eq!(result, Ok(Value::Int(5)));
+        }
+
+        #[test]
+        fn test_function_with_nested_calls() {
+            let mut env = Env::new();
+            env.add_function(
+                "add".to_string(),
+                Function {
+                    params: vec![("a".to_string(), Type::Int), ("b".to_string(), Type::Int)],
+                    return_type: Type::Int,
+                    body: vec![Stmt::Return(Some(Expr::BinOp {
+                        left: Box::new(Expr::Variable("a".to_string())),
+                        op: crate::ast::BinOp::Add,
+                        right: Box::new(Expr::Variable("b".to_string())),
+                    }))],
+                },
+            );
+
+            env.add_function(
+                "multiply".to_string(),
+                Function {
+                    params: vec![("a".to_string(), Type::Int), ("b".to_string(), Type::Int)],
+                    return_type: Type::Int,
+                    body: vec![Stmt::Return(Some(Expr::BinOp {
+                        left: Box::new(Expr::Variable("a".to_string())),
+                        op: crate::ast::BinOp::Mul,
+                        right: Box::new(Expr::Variable("b".to_string())),
+                    }))],
+                },
+            );
+
+            let expr = Expr::Call {
+                function: Box::new(Expr::Variable("multiply".to_string())),
+                args: vec![
+                    Expr::Call {
+                        function: Box::new(Expr::Variable("add".to_string())),
+                        args: vec![Expr::Int(2), Expr::Int(3)],
+                    },
+                    Expr::Call {
+                        function: Box::new(Expr::Variable("add".to_string())),
+                        args: vec![Expr::Int(4), Expr::Int(5)],
+                    },
+                ],
+            };
+
+            let result = eval_expr(&expr, &mut env);
+            assert_eq!(result, Ok(Value::Int(45)));
         }
     }
 }
