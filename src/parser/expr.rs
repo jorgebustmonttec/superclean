@@ -212,8 +212,59 @@ fn parse_unary(input: Tokens) -> IResult<Tokens, Expr> {
                 },
             ))
         }
-        _ => parse_primary(input),
+        _ => {
+            let (input, expr) = parse_member_access(input)?;
+            Ok((input, expr))
+        }
     }
+}
+
+/// ------------------------------------------------------------------
+/// Member Access Parser
+/// ------------------------------------------------------------------
+/// #### Parses member access expressions like `obj.member` or `tuple.0`.
+/// This parser extends a base expression with member access or tuple access.
+fn parse_member_access(input: Tokens) -> IResult<Tokens, Expr> {
+    // Parse the base expression first (e.g., identifier, tuple, etc.)
+    let (mut input, mut base_expr) = parse_primary(input)?;
+
+    // Loop to handle chained member accesses (e.g., `foo.bar.baz`)
+    loop {
+        input = skip_ignored(input);
+
+        // Check for a dot (.)
+        if let Some((Token::Dot, rest)) = input.split_first() {
+            input = skip_ignored(rest);
+
+            // Check if the member is an integer (e.g., `tuple.0`)
+            if let Some((Token::Integer(index), rest)) = input.split_first() {
+                base_expr = Expr::TupleAccess {
+                    tuple: Box::new(base_expr),
+                    index: *index as usize,
+                };
+                input = rest;
+            }
+            // Check if the member is an identifier (e.g., `foo.bar`)
+            else if let Some((Token::Identifier(member), rest)) = input.split_first() {
+                base_expr = Expr::MemberAccess {
+                    object: Box::new(base_expr),
+                    member: member.clone(),
+                };
+                input = rest;
+            } else {
+                // If neither an identifier nor an integer follows the dot, return an error
+                return Err(nom::Err::Error(nom::error::Error::new(
+                    input,
+                    ErrorKind::Tag,
+                )));
+            }
+        } else {
+            // If no dot is found, stop parsing member access
+            break;
+        }
+    }
+
+    Ok((input, base_expr))
 }
 
 /// ------------------------------------------------------------------
@@ -221,6 +272,8 @@ fn parse_unary(input: Tokens) -> IResult<Tokens, Expr> {
 /// ------------------------------------------------------------------
 /// #### Parses primary expressions. This includes literals and parenthesized expressions.
 fn parse_primary(input: Tokens) -> IResult<Tokens, Expr> {
+    println!("[parse_primary] Parsing primary expression...");
+    println!("[parse_primary] Current token: {:?}", input.first());
     alt((
         parse_parens,
         parse_if_else,
@@ -229,6 +282,7 @@ fn parse_primary(input: Tokens) -> IResult<Tokens, Expr> {
         parse_bool,
         parse_string,
         parse_call_expr,
+        parse_tuple,
         parse_identifier,
     ))
     .parse(input)
@@ -402,6 +456,39 @@ fn parse_call_expr(input: Tokens) -> IResult<Tokens, Expr> {
             args,
         },
     ))
+}
+
+/// ------------------------------------------------------------------
+/// Tuple Parser
+/// ------------------------------------------------------------------
+/// #### Parses tuple literals like `(1, 2, 3)`
+fn parse_tuple(input: Tokens) -> IResult<Tokens, Expr> {
+    let input = skip_ignored(input);
+    let (input, _) = tag_token(Token::LParen)(input)?;
+    let input = skip_ignored(input);
+    let mut elements = Vec::new();
+    let mut input = skip_ignored(input);
+
+    while let Some(tok) = input.first() {
+        if *tok == Token::RParen {
+            break;
+        }
+
+        let (new_input, element) = parse_expr(input)?;
+        elements.push(element);
+        input = skip_ignored(new_input);
+
+        // Check for comma or closing parenthesis
+        if let Some((Token::Comma, rest)) = input.split_first() {
+            input = skip_ignored(rest);
+        } else {
+            break;
+        }
+    }
+
+    let (input, _) = tag_token(Token::RParen)(input)?;
+
+    Ok((input, Expr::Tuple(elements)))
 }
 
 // ======================== Tests =========================
@@ -608,6 +695,105 @@ mod expr_tests {
             let tokens = lex(code).unwrap();
             let result = parse_expr(&tokens).unwrap();
             assert_eq!(result.1, Expr::Variable("x".to_string()));
+        }
+    }
+
+    mod tuple_tests {
+        use super::*;
+
+        #[test]
+        fn test_tuple() {
+            let code = "(1, 2, 3)";
+            let tokens = lex(code).unwrap();
+            let result = parse_expr(&tokens).unwrap();
+            assert_eq!(
+                result.1,
+                Expr::Tuple(vec![Expr::Int(1), Expr::Int(2), Expr::Int(3)])
+            );
+        }
+
+        #[test]
+        fn test_empty_tuple() {
+            let code = "()";
+            let tokens = lex(code).unwrap();
+            let result = parse_expr(&tokens).unwrap();
+            assert_eq!(result.1, Expr::Tuple(vec![]));
+        }
+        #[test]
+        fn test_nested_tuple() {
+            let code = "(1, (2, 3), 4)";
+            let tokens = lex(code).unwrap();
+            let result = parse_expr(&tokens).unwrap();
+            assert_eq!(
+                result.1,
+                Expr::Tuple(vec![
+                    Expr::Int(1),
+                    Expr::Tuple(vec![Expr::Int(2), Expr::Int(3)]),
+                    Expr::Int(4)
+                ])
+            );
+        }
+
+        #[test]
+        fn test_tuple_with_expressions() {
+            let code = "(1 + 2, 3 * 4)";
+            let tokens = lex(code).unwrap();
+            let result = parse_expr(&tokens).unwrap();
+            assert_eq!(
+                result.1,
+                Expr::Tuple(vec![
+                    Expr::BinOp {
+                        left: Box::new(Expr::Int(1)),
+                        op: BinOp::Add,
+                        right: Box::new(Expr::Int(2)),
+                    },
+                    Expr::BinOp {
+                        left: Box::new(Expr::Int(3)),
+                        op: BinOp::Mul,
+                        right: Box::new(Expr::Int(4)),
+                    }
+                ])
+            );
+        }
+
+        #[test]
+        fn test_tuple_with_one_element() {
+            let code = "(1,)";
+            let tokens = lex(code).unwrap();
+            let result = parse_expr(&tokens).unwrap();
+            assert_eq!(result.1, Expr::Tuple(vec![Expr::Int(1)]));
+        }
+    }
+
+    mod member_access_tests {
+        use super::*;
+
+        #[test]
+        fn test_member_access() {
+            let code = "obj.member";
+            let tokens = lex(code).unwrap();
+            let result = parse_expr(&tokens).unwrap();
+            assert_eq!(
+                result.1,
+                Expr::MemberAccess {
+                    object: Box::new(Expr::Variable("obj".to_string())),
+                    member: "member".to_string(),
+                }
+            );
+        }
+
+        #[test]
+        fn test_tuple_element_access() {
+            let code = "tuple.0";
+            let tokens = lex(code).unwrap();
+            let result = parse_expr(&tokens).unwrap();
+            assert_eq!(
+                result.1,
+                Expr::TupleAccess {
+                    tuple: Box::new(Expr::Variable("tuple".to_string())),
+                    index: 0,
+                }
+            );
         }
     }
 }

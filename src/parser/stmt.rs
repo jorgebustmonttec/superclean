@@ -256,11 +256,44 @@ fn parse_type(input: Tokens) -> IResult<Tokens, Type> {
         Some((Token::BoolType, rest)) => Ok((rest, Type::Bool)),
         Some((Token::StringType, rest)) => Ok((rest, Type::String)),
         Some((Token::UnitType, rest)) => Ok((rest, Type::Unit)),
+        //tuple type:
+        Some((Token::LParen, rest)) => {
+            let (rest, types) = parse_type_list(rest)?;
+            Ok((rest, Type::Tuple(types)))
+        }
+
         _ => Err(nom::Err::Error(nom::error::Error::new(
             input,
             ErrorKind::Tag,
         ))),
     }
+}
+
+/// Parses a list of types enclosed in parentheses, e.g., `(Int, Bool)`
+fn parse_type_list(input: Tokens) -> IResult<Tokens, Vec<Type>> {
+    let mut types = Vec::new();
+    let mut input = skip_ignored(input);
+
+    while let Some(tok) = input.first() {
+        if *tok == Token::RParen {
+            break;
+        }
+
+        // Parse the type
+        let (new_input, ty) = parse_type(input)?;
+        types.push(ty);
+        input = skip_ignored(new_input);
+
+        // Check for comma or closing parenthesis
+        if let Some((Token::Comma, rest)) = input.split_first() {
+            input = skip_ignored(rest);
+        } else {
+            break;
+        }
+    }
+
+    let (input, _) = tag_token(Token::RParen)(input)?;
+    Ok((input, types))
 }
 
 /// ------------------------------------------------------------------
@@ -324,6 +357,24 @@ mod stmt_tests {
                     name: "x".to_string(),
                     ty: None,
                     expr: crate::ast::Expr::Int(5),
+                }
+            );
+        }
+
+        #[test]
+        fn test_let_with_tuple_type() {
+            let code = "let x: (Int, Bool) = (5, true);";
+            let tokens = lex(code).unwrap();
+            let result = parse_stmt(&tokens).unwrap();
+            assert_eq!(
+                result.1,
+                Stmt::Let {
+                    name: "x".to_string(),
+                    ty: Some(Type::Tuple(vec![Type::Int, Type::Bool])),
+                    expr: crate::ast::Expr::Tuple(vec![
+                        crate::ast::Expr::Int(5),
+                        crate::ast::Expr::Bool(true)
+                    ]),
                 }
             );
         }

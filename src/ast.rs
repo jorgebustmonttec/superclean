@@ -25,6 +25,20 @@ pub enum Expr {
         args: Vec<Expr>,
     },
     StmtExpr(Box<Stmt>),
+    Tuple(Vec<Expr>),
+    List(Vec<Expr>),
+    MemberAccess {
+        object: Box<Expr>,
+        member: String,
+    },
+    Index {
+        object: Box<Expr>,
+        index: Box<Expr>,
+    },
+    TupleAccess {
+        tuple: Box<Expr>,
+        index: usize,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -83,4 +97,11 @@ pub enum Type {
     Bool,
     String,
     Unit,
+    Float,
+    Tuple(Vec<Type>),
+    Function {
+        params: Vec<Type>,
+        return_type: Box<Type>,
+    },
+    List(Box<Type>),
 }

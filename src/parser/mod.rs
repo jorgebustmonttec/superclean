@@ -332,4 +332,70 @@ fun main() {
             ]
         );
     }
+
+    #[test]
+    fn mock_code_function_with_tuple() {
+        let code = "
+        fun returntuple() : (Int, String) {
+            return (1, \"hello\");
+        }
+        fun main() {
+            let result = returntuple();
+            print(\"element 1: \" + result.0);
+            print(\"element 2: \" + result.1);
+        }";
+        let tokens = lex(code).unwrap();
+        let result = parse(&tokens);
+        assert!(result.is_ok());
+        let stmts = result.unwrap();
+        assert_eq!(stmts.len(), 2); // Two top-level functions
+        assert_eq!(
+            stmts,
+            vec![
+                Stmt::Fun {
+                    name: "returntuple".to_string(),
+                    params: vec![],
+                    return_type: crate::ast::Type::Tuple(vec![
+                        crate::ast::Type::Int,
+                        crate::ast::Type::String
+                    ]),
+                    body: vec![Stmt::Return(Some(Expr::Tuple(vec![
+                        Expr::Int(1),
+                        Expr::String("hello".to_string()),
+                    ])))],
+                },
+                Stmt::Fun {
+                    name: "main".to_string(),
+                    params: vec![],
+                    return_type: ast::Type::Unit,
+                    body: vec![
+                        Stmt::Let {
+                            name: "result".to_string(),
+                            ty: None,
+                            expr: Expr::Call {
+                                function: Box::new(Expr::Variable("returntuple".to_string())),
+                                args: vec![],
+                            },
+                        },
+                        Stmt::Print(Expr::BinOp {
+                            left: Box::new(Expr::String("element 1: ".to_string())),
+                            op: BinOp::Add,
+                            right: Box::new(Expr::TupleAccess {
+                                tuple: Box::new(Expr::Variable("result".to_string())),
+                                index: 0
+                            }),
+                        }),
+                        Stmt::Print(Expr::BinOp {
+                            left: Box::new(Expr::String("element 2: ".to_string())),
+                            op: BinOp::Add,
+                            right: Box::new(Expr::TupleAccess {
+                                tuple: Box::new(Expr::Variable("result".to_string())),
+                                index: 1
+                            }),
+                        }),
+                    ],
+                },
+            ]
+        );
+    }
 }

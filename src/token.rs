@@ -130,10 +130,9 @@ impl Token {
             | Token::Or => 2,
 
             Token::EOF => 0,
-
-            _ => {
-                panic!("Unexpected token type: {:?}", self);
-            }
+            //_ => {
+            //   panic!("Unexpected token type: {:?}", self);
+            //}
         }
     }
 }
