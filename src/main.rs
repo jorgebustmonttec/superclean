@@ -1,9 +1,10 @@
 use std::fs;
 use std::path::Path;
 
+use superclean::evaluator::{Env, eval_stmt};
 use superclean::lexer::lex;
 use superclean::parser::parse;
-use superclean::type_checker::{TypeEnv, type_check_program};
+use superclean::type_checker::type_check_program;
 
 fn main() {
     // Load input from test.sclean
@@ -57,6 +58,22 @@ fn main() {
         Err(e) => {
             eprintln!("\nType Checking Error:");
             eprintln!("{:?}", e);
+            return;
+        }
+    }
+
+    // Step 4: Evaluation
+    println!("\n== Evaluation ==");
+    let mut env = Env::new();
+    for stmt in stmts {
+        match eval_stmt(&stmt, &mut env) {
+            Ok(Some(value)) => println!("Result: {:?}", value),
+            Ok(None) => {} // No result to print
+            Err(e) => {
+                eprintln!("\nEvaluation Error:");
+                eprintln!("{:?}", e);
+                return;
+            }
         }
     }
 }

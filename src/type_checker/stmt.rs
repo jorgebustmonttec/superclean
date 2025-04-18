@@ -21,7 +21,7 @@ pub fn type_check_stmt(stmt: &Stmt, env: &mut TypeEnv) -> Result<(), String> {
         Stmt::While { condition, body } => type_check_while_stmt(condition, body, env),
         Stmt::Break => Err("`break` statement outside of a loop".to_string()),
         Stmt::Return(_) => Err("`return` statement outside of a function".to_string()),
-        _ => Err(format!("Unsupported statement: {:?}", stmt)),
+        //_ => Err(format!("Unsupported statement: {:?}", stmt)),
     }
 }
 
