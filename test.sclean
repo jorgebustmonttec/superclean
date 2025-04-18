@@ -1,14 +1,22 @@
-let x: Int = 5;
-let y = 10;
-let z = x + y;
 
 fun add(a: Int, b: Int): Int {
     return a + b;
 }
 
-let result = add(z, 20);
 
-while result > 0 {
+fun main() {
+    let x: Int = 5;
+    let y = 10;
+
+    let result = 0;
+
+    while (x < 10) {
+        result = add(x, y);
+        x = x + 1;
+    }
     print(result);
-    break;
+
+    return;
+
+
 }

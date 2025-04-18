@@ -44,6 +44,7 @@ pub fn type_check_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, String> {
             type_check_stmt(stmt, env)?; // Ensure the statement is valid
             Ok(Type::Unit) // StmtExpr always evaluates to Unit
         }
+        Expr::Call { function, args } => type_check_call(function, args, env),
         _ => Err(format!("Unsupported expression: {:?}", expr)),
     }
 }
@@ -216,12 +217,54 @@ fn type_check_if_else(
     Ok(then_type) // The type of the IfElse expression is the type of its branches
 }
 
+/// Type-checks a function call.
+fn type_check_call(function: &Expr, args: &[Expr], env: &mut TypeEnv) -> Result<Type, String> {
+    println!(
+        "[type_check_call] Type checking function call: {:?}",
+        function
+    );
+
+    // Ensure the function is a valid identifier
+    if let Expr::Variable(name) = function {
+        if let Some((param_types, return_type)) = env.functions.get(name).cloned() {
+            // Clone `param_types` and `return_type` to avoid overlapping borrows
+            // Check argument count
+            if args.len() != param_types.len() {
+                return Err(format!(
+                    "Function '{}' expects {} arguments, but {} were provided",
+                    name,
+                    param_types.len(),
+                    args.len()
+                ));
+            }
+
+            // Check argument types
+            for (arg, expected_type) in args.iter().zip(param_types) {
+                let arg_type = type_check_expr(arg, env)?;
+                if arg_type != expected_type {
+                    return Err(format!(
+                        "Function '{}' argument type mismatch: expected {:?}, found {:?}",
+                        name, expected_type, arg_type
+                    ));
+                }
+            }
+
+            // Return the function's return type
+            Ok(return_type)
+        } else {
+            Err(format!("Function '{}' not declared", name))
+        }
+    } else {
+        Err(format!("Invalid function call: {:?}", function))
+    }
+}
+
 // ========================= Tests =========================
 
 #[cfg(test)]
 mod expr_type_tests {
     use super::*;
-    use crate::ast::{BinOp, Expr, UnaryOp};
+    use crate::ast::{BinOp, Expr, Type, UnaryOp};
 
     mod literal_tests {
         use super::*;
@@ -626,6 +669,91 @@ mod expr_type_tests {
             }));
             let result = type_check_expr(&expr, &mut env);
             assert!(result.is_err());
+        }
+    }
+
+    mod function_call_tests {
+        use super::*;
+
+        #[test]
+        fn test_valid_function_call() {
+            let mut env = TypeEnv::new();
+            env.functions
+                .insert("add".to_string(), (vec![Type::Int, Type::Int], Type::Int));
+
+            let expr = Expr::Call {
+                function: Box::new(Expr::Variable("add".to_string())),
+                args: vec![Expr::Int(1), Expr::Int(2)],
+            };
+
+            let result = type_check_expr(&expr, &mut env);
+            assert_eq!(result, Ok(Type::Int));
+        }
+
+        #[test]
+        fn test_function_call_argument_count_mismatch() {
+            let mut env = TypeEnv::new();
+            env.functions
+                .insert("add".to_string(), (vec![Type::Int, Type::Int], Type::Int));
+
+            let expr = Expr::Call {
+                function: Box::new(Expr::Variable("add".to_string())),
+                args: vec![Expr::Int(1)], // Missing one argument
+            };
+
+            let result = type_check_expr(&expr, &mut env);
+            assert!(result.is_err());
+            assert_eq!(
+                result.unwrap_err(),
+                "Function 'add' expects 2 arguments, but 1 were provided"
+            );
+        }
+
+        #[test]
+        fn test_function_call_argument_type_mismatch() {
+            let mut env = TypeEnv::new();
+            env.functions
+                .insert("add".to_string(), (vec![Type::Int, Type::Int], Type::Int));
+
+            let expr = Expr::Call {
+                function: Box::new(Expr::Variable("add".to_string())),
+                args: vec![Expr::Int(1), Expr::Bool(true)], // Second argument is invalid
+            };
+
+            let result = type_check_expr(&expr, &mut env);
+            assert!(result.is_err());
+            assert_eq!(
+                result.unwrap_err(),
+                "Function 'add' argument type mismatch: expected Int, found Bool"
+            );
+        }
+
+        #[test]
+        fn test_undeclared_function_call() {
+            let mut env = TypeEnv::new();
+
+            let expr = Expr::Call {
+                function: Box::new(Expr::Variable("unknown".to_string())),
+                args: vec![Expr::Int(1)],
+            };
+
+            let result = type_check_expr(&expr, &mut env);
+            assert!(result.is_err());
+            assert_eq!(result.unwrap_err(), "Function 'unknown' not declared");
+        }
+
+        #[test]
+        fn test_invalid_function_expression() {
+            let mut env = TypeEnv::new();
+
+            let expr = Expr::Call {
+                function: Box::new(Expr::Int(42)), // Invalid function expression
+                args: vec![Expr::Int(1)],
+            };
+
+            let result = type_check_expr(&expr, &mut env);
+            assert!(result.is_err());
+            assert_eq!(result.unwrap_err(), "Invalid function call: Int(42)");
         }
     }
 }
