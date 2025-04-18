@@ -1,5 +1,5 @@
-use super::{Env, Value};
-use crate::ast::{BinOp, Expr, UnaryOp};
+use super::{Env, Value, eval_stmt};
+use crate::ast::{BinOp, Expr, Stmt, UnaryOp}; // Added Stmt
 
 /// Evaluates an expression and returns its runtime value.
 pub fn eval_expr(expr: &Expr, env: &mut Env) -> Result<Value, String> {
@@ -19,6 +19,11 @@ pub fn eval_expr(expr: &Expr, env: &mut Env) -> Result<Value, String> {
         Expr::UnaryOp { op, expr } => eval_unary_op(op, expr, env),
         Expr::Tuple(elements) => eval_tuple(elements, env),
         Expr::TupleAccess { tuple, index } => eval_tuple_access(tuple, *index, env),
+        Expr::IfElse {
+            condition,
+            then_branch,
+            else_branch,
+        } => eval_if_else(condition, then_branch, else_branch, env),
         _ => Err(format!("Unsupported expression: {:?}", expr)),
     }
 }
@@ -95,7 +100,6 @@ fn eval_binop(left: &Expr, op: &BinOp, right: &Expr, env: &mut Env) -> Result<Va
         // String concatenation
         (Value::String(l), r, BinOp::Add) => Ok(Value::String(l + &value_to_string(r))),
         (l, Value::String(r), BinOp::Add) => Ok(Value::String(value_to_string(l) + &r)),
-        (Value::String(l), Value::String(r), BinOp::Add) => Ok(Value::String(l + &r)),
 
         // Unsupported operations
         _ => Err(format!(
@@ -116,8 +120,8 @@ fn eval_tuple(elements: &[Expr], env: &mut Env) -> Result<Value, String> {
 
 /// Evaluates a tuple access expression.
 fn eval_tuple_access(tuple: &Expr, index: usize, env: &mut Env) -> Result<Value, String> {
-    let tuple_value = eval_expr(tuple, env)?;
-    if let Value::Tuple(elements) = tuple_value {
+    let _tuple_value = eval_expr(tuple, env)?; // Prefix unused variable with an underscore
+    if let Value::Tuple(elements) = _tuple_value {
         if index < elements.len() {
             Ok(elements[index].clone())
         } else {
@@ -128,8 +132,41 @@ fn eval_tuple_access(tuple: &Expr, index: usize, env: &mut Env) -> Result<Value,
             ))
         }
     } else {
-        Err(format!("Expected a tuple, found {:?}", tuple_value))
+        Err(format!("Expected a tuple, found {:?}", _tuple_value))
     }
+}
+
+/// Evaluates an `if-else` expression.
+fn eval_if_else(
+    condition: &Expr,
+    then_branch: &[Expr],
+    else_branch: &Option<Vec<Expr>>,
+    env: &mut Env,
+) -> Result<Value, String> {
+    // Evaluate the condition
+    let condition_value = eval_expr(condition, env)?;
+    let branch = match condition_value {
+        Value::Bool(true) => then_branch,
+        Value::Bool(false) => match else_branch {
+            Some(branch) => branch,
+            None => return Ok(Value::Unit), // No else branch, return Unit
+        },
+        _ => return Err("Condition in if-else must evaluate to a Bool".to_string()),
+    };
+
+    // Evaluate each expression in the selected branch
+    let mut last_value = Value::Unit;
+    for expr in branch {
+        last_value = match expr {
+            Expr::StmtExpr(stmt) => {
+                eval_stmt(stmt, env)?; // Evaluate the statement
+                Value::Unit // Statement expressions always return Unit
+            }
+            _ => eval_expr(expr, env)?, // Evaluate the expression
+        };
+    }
+
+    Ok(last_value)
 }
 
 /// Converts a `Value` to a string for concatenation.
@@ -648,6 +685,65 @@ mod eval_test {
             };
             let result = eval_expr(&expr, &mut env);
             assert_eq!(result, Ok(Value::Tuple(vec![Value::Int(2), Value::Int(3)])));
+        }
+    }
+
+    mod if_else {
+        use super::*;
+
+        #[test]
+        fn if_else_with_expressions() {
+            let mut env = Env::new();
+            let expr = Expr::IfElse {
+                condition: Box::new(Expr::Bool(true)),
+                then_branch: vec![Expr::Int(42)],
+                else_branch: Some(vec![Expr::Int(0)]),
+            };
+            let result = eval_expr(&expr, &mut env);
+            assert_eq!(result, Ok(Value::Int(42)));
+        }
+
+        #[test]
+        fn if_else_with_statements() {
+            let mut env = Env::new();
+            let expr = Expr::IfElse {
+                condition: Box::new(Expr::Bool(false)),
+                then_branch: vec![Expr::StmtExpr(Box::new(Stmt::Print(Expr::String(
+                    "This won't print".to_string(),
+                ))))],
+                else_branch: Some(vec![Expr::StmtExpr(Box::new(Stmt::Print(Expr::String(
+                    "This will print".to_string(),
+                ))))]),
+            };
+            let result = eval_expr(&expr, &mut env);
+            assert_eq!(result, Ok(Value::Unit)); // Statement expressions return Unit
+        }
+
+        #[test]
+        fn if_without_else() {
+            let mut env = Env::new();
+            let expr = Expr::IfElse {
+                condition: Box::new(Expr::Bool(false)),
+                then_branch: vec![Expr::Int(42)],
+                else_branch: None,
+            };
+            let result = eval_expr(&expr, &mut env);
+            assert_eq!(result, Ok(Value::Unit)); // No else branch, return Unit
+        }
+
+        #[test]
+        fn invalid_condition_type() {
+            let mut env = Env::new();
+            let expr = Expr::IfElse {
+                condition: Box::new(Expr::Int(1)), // Invalid condition type
+                then_branch: vec![Expr::Int(42)],
+                else_branch: Some(vec![Expr::Int(0)]),
+            };
+            let result = eval_expr(&expr, &mut env);
+            assert_eq!(
+                result,
+                Err("Condition in if-else must evaluate to a Bool".to_string())
+            );
         }
     }
 }

@@ -1,4 +1,4 @@
-use super::{Env, Value};
+use super::{Env, Function, Value};
 use crate::ast::Stmt;
 use crate::evaluator::eval_expr;
 
@@ -8,6 +8,12 @@ pub fn eval_stmt(stmt: &Stmt, env: &mut Env) -> Result<Option<Value>, String> {
         Stmt::Let { name, expr, .. } => eval_let_stmt(name, expr, env),
         Stmt::Reassignment { name, expr } => eval_reassignment_stmt(name, expr, env),
         Stmt::Print(expr) => eval_print_stmt(expr, env),
+        Stmt::Fun {
+            name,
+            params,
+            return_type,
+            body,
+        } => eval_fun_decl(name, params, return_type, body, env),
         _ => Ok(None),
     }
 }
@@ -41,6 +47,23 @@ fn eval_reassignment_stmt(
 fn eval_print_stmt(expr: &crate::ast::Expr, env: &mut Env) -> Result<Option<Value>, String> {
     let value = eval_expr(expr, env)?;
     println!("{}", value_to_string(value));
+    Ok(None)
+}
+
+/// Evaluates a function declaration by storing it in the environment.
+fn eval_fun_decl(
+    name: &String,
+    params: &Vec<(String, crate::ast::Type)>,
+    return_type: &crate::ast::Type,
+    body: &Vec<Stmt>,
+    env: &mut Env,
+) -> Result<Option<Value>, String> {
+    let function = Function {
+        params: params.clone(),
+        return_type: return_type.clone(),
+        body: body.clone(),
+    };
+    env.add_function(name.clone(), function);
     Ok(None)
 }
 
@@ -208,6 +231,62 @@ mod stmt_tests {
             ]));
             let result = eval_stmt(&stmt, &mut env);
             assert!(result.is_ok());
+        }
+    }
+
+    mod fun_stmt {
+        use super::*;
+
+        #[test]
+        fn function_declaration() {
+            let mut env = Env::new();
+            let stmt = Stmt::Fun {
+                name: "add".to_string(),
+                params: vec![("a".to_string(), Type::Int), ("b".to_string(), Type::Int)],
+                return_type: Type::Int,
+                body: vec![Stmt::Return(Some(Expr::BinOp {
+                    left: Box::new(Expr::Variable("a".to_string())),
+                    op: crate::ast::BinOp::Add,
+                    right: Box::new(Expr::Variable("b".to_string())),
+                }))],
+            };
+            let result = eval_stmt(&stmt, &mut env);
+            assert!(result.is_ok());
+            let function = env.get_function("add").unwrap();
+            assert_eq!(
+                function,
+                &Function {
+                    params: vec![("a".to_string(), Type::Int), ("b".to_string(), Type::Int),],
+                    return_type: Type::Int,
+                    body: vec![Stmt::Return(Some(Expr::BinOp {
+                        left: Box::new(Expr::Variable("a".to_string())),
+                        op: crate::ast::BinOp::Add,
+                        right: Box::new(Expr::Variable("b".to_string())),
+                    }))],
+                }
+            );
+        }
+
+        #[test]
+        fn function_with_unit_return() {
+            let mut env = Env::new();
+            let stmt = Stmt::Fun {
+                name: "main".to_string(),
+                params: vec![],
+                return_type: Type::Unit,
+                body: vec![Stmt::Print(Expr::String("Hello, world!".to_string()))],
+            };
+            let result = eval_stmt(&stmt, &mut env);
+            assert!(result.is_ok());
+            let function = env.get_function("main").unwrap();
+            assert_eq!(
+                function,
+                &Function {
+                    params: vec![],
+                    return_type: Type::Unit,
+                    body: vec![Stmt::Print(Expr::String("Hello, world!".to_string()))],
+                }
+            );
         }
     }
 }
