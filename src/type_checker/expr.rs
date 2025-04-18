@@ -10,6 +10,17 @@ pub fn type_check_expr(expr: &Expr, env: &TypeEnv) -> Result<Type, String> {
         Expr::String(_) => type_check_literal(expr),
         Expr::BinOp { left, op, right } => type_check_binop(left, op, right, env),
         Expr::UnaryOp { op, expr } => type_check_unary_op(op, expr, env),
+        Expr::Tuple(elements) => type_check_tuple(elements, env),
+        Expr::TupleAccess { tuple, index } => type_check_tuple_access(tuple, *index, env),
+        Expr::IfElse {
+            condition,
+            then_branch,
+            else_branch,
+        } => type_check_if_else(condition, then_branch, else_branch, env),
+        Expr::StmtExpr(stmt) => {
+            //type_check_stmt(stmt, env)?; // Ensure the statement is valid
+            Ok(Type::Unit) // StmtExpr always evaluates to Unit
+        }
         _ => Err(format!("Unsupported expression: {:?}", expr)),
     }
 }
@@ -93,6 +104,81 @@ fn type_check_unary_op(op: &UnaryOp, expr: &Expr, env: &TypeEnv) -> Result<Type,
             op, expr_type
         )),
     }
+}
+
+/// Type-checks a tuple expression.
+fn type_check_tuple(elements: &[Expr], env: &TypeEnv) -> Result<Type, String> {
+    let mut types = Vec::new();
+    for element in elements {
+        types.push(type_check_expr(element, env)?);
+    }
+    Ok(Type::Tuple(types))
+}
+
+/// Type-checks tuple access expressions.
+fn type_check_tuple_access(tuple: &Expr, index: usize, env: &TypeEnv) -> Result<Type, String> {
+    let tuple_type = type_check_expr(tuple, env)?;
+    if let Type::Tuple(types) = tuple_type {
+        if index < types.len() {
+            Ok(types[index].clone())
+        } else {
+            Err(format!(
+                "Tuple index out of bounds: {} (tuple has {} elements)",
+                index,
+                types.len()
+            ))
+        }
+    } else {
+        Err(format!(
+            "Cannot access index {} on non-tuple type: {:?}",
+            index, tuple_type
+        ))
+    }
+}
+
+/// Type-checks an `IfElse` expression.
+fn type_check_if_else(
+    condition: &Expr,
+    then_branch: &[Expr],
+    else_branch: &Option<Vec<Expr>>,
+    env: &TypeEnv,
+) -> Result<Type, String> {
+    // Check that the condition is a boolean
+    let condition_type = type_check_expr(condition, env)?;
+    if condition_type != Type::Bool {
+        return Err(format!(
+            "IfElse condition must be Bool, found {:?}",
+            condition_type
+        ));
+    }
+
+    // Check the type of the last expression in the then branch
+    let then_type = if let Some(last_expr) = then_branch.last() {
+        type_check_expr(last_expr, env)?
+    } else {
+        Type::Unit // Empty branch defaults to Unit
+    };
+
+    // Check the type of the last expression in the else branch (if it exists)
+    let else_type = if let Some(else_branch) = else_branch {
+        if let Some(last_expr) = else_branch.last() {
+            type_check_expr(last_expr, env)?
+        } else {
+            Type::Unit // Empty branch defaults to Unit
+        }
+    } else {
+        Type::Unit // No else branch defaults to Unit
+    };
+
+    // Ensure the then and else branches have the same type
+    if then_type != else_type {
+        return Err(format!(
+            "IfElse branches must have the same type, found {:?} and {:?}",
+            then_type, else_type
+        ));
+    }
+
+    Ok(then_type) // The type of the IfElse expression is the type of its branches
 }
 
 // ========================= Tests =========================
@@ -372,6 +458,139 @@ mod expr_type_tests {
             let env = TypeEnv::new();
             let result = type_check_expr(&expr, &env);
             assert_eq!(result, Ok(Type::Int));
+        }
+    }
+
+    mod tuple_tests {
+        use super::*;
+
+        #[test]
+        fn test_tuple_creation() {
+            let env = TypeEnv::new();
+
+            let expr = Expr::Tuple(vec![Expr::Int(1), Expr::Bool(true)]);
+            let result = type_check_expr(&expr, &env);
+            assert_eq!(result, Ok(Type::Tuple(vec![Type::Int, Type::Bool])));
+        }
+
+        #[test]
+        fn test_tuple_access_valid() {
+            let env = TypeEnv::new();
+
+            let expr = Expr::TupleAccess {
+                tuple: Box::new(Expr::Tuple(vec![Expr::Int(1), Expr::Bool(true)])),
+                index: 1,
+            };
+            let result = type_check_expr(&expr, &env);
+            assert_eq!(result, Ok(Type::Bool));
+        }
+
+        #[test]
+        fn test_tuple_access_out_of_bounds() {
+            let env = TypeEnv::new();
+
+            let expr = Expr::TupleAccess {
+                tuple: Box::new(Expr::Tuple(vec![Expr::Int(1), Expr::Bool(true)])),
+                index: 2, // Out of bounds
+            };
+            let result = type_check_expr(&expr, &env);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn test_tuple_access_non_tuple() {
+            let env = TypeEnv::new();
+
+            let expr = Expr::TupleAccess {
+                tuple: Box::new(Expr::Int(42)), // Not a tuple
+                index: 0,
+            };
+            let result = type_check_expr(&expr, &env);
+            assert!(result.is_err());
+        }
+    }
+
+    mod if_else_tests {
+        use super::*;
+
+        #[test]
+        fn test_if_else_with_same_branch_types() {
+            let env = TypeEnv::new();
+
+            let expr = Expr::IfElse {
+                condition: Box::new(Expr::Bool(true)),
+                then_branch: vec![Expr::Int(1)],
+                else_branch: Some(vec![Expr::Int(2)]),
+            };
+            let result = type_check_expr(&expr, &env);
+            assert_eq!(result, Ok(Type::Int));
+        }
+
+        #[test]
+        fn test_if_else_with_unit_branches() {
+            let env = TypeEnv::new();
+
+            let expr = Expr::IfElse {
+                condition: Box::new(Expr::Bool(false)),
+                then_branch: vec![],
+                else_branch: None,
+            };
+            let result = type_check_expr(&expr, &env);
+            assert_eq!(result, Ok(Type::Unit));
+        }
+
+        #[test]
+        fn test_if_else_with_mismatched_branch_types() {
+            let env = TypeEnv::new();
+
+            let expr = Expr::IfElse {
+                condition: Box::new(Expr::Bool(true)),
+                then_branch: vec![Expr::Int(1)],
+                else_branch: Some(vec![Expr::Bool(false)]), // Mismatched types
+            };
+            let result = type_check_expr(&expr, &env);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn test_if_else_with_non_boolean_condition() {
+            let env = TypeEnv::new();
+
+            let expr = Expr::IfElse {
+                condition: Box::new(Expr::Int(1)), // Invalid: condition is not Bool
+                then_branch: vec![Expr::Int(1)],
+                else_branch: Some(vec![Expr::Int(2)]),
+            };
+            let result = type_check_expr(&expr, &env);
+            assert!(result.is_err());
+        }
+    }
+
+    mod stmt_expr_tests {
+        use super::*;
+        use crate::ast::Stmt;
+
+        #[test]
+        fn test_stmt_expr_with_valid_statement() {
+            let env = TypeEnv::new();
+
+            let expr = Expr::StmtExpr(Box::new(Stmt::Print(Expr::String(
+                "Hello, world!".to_string(),
+            ))));
+            let result = type_check_expr(&expr, &env);
+            assert_eq!(result, Ok(Type::Unit)); // StmtExpr always evaluates to Unit
+        }
+
+        #[test]
+        fn test_stmt_expr_with_invalid_statement() {
+            let env = TypeEnv::new();
+
+            let expr = Expr::StmtExpr(Box::new(Stmt::Reassignment {
+                name: "x".to_string(),
+                expr: Expr::Bool(true), // Assume `x` is not declared in the environment
+            }));
+            let result = type_check_expr(&expr, &env);
+            assert!(result.is_err());
         }
     }
 }
