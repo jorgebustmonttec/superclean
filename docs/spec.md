@@ -93,40 +93,109 @@ tuple_type      ::= "(" <type> "," <type> { "," <type> } ")"
 #### 2.1.3 Abstract Syntax & Formation Rules (100 pts)
 
 ```rust
-enum Expr {
+
+pub enum Expr {
+    Bool(bool),
     Int(i64),
     Float(f64),
-    Bool(bool),
+    IfElse {
+        condition: Box<Expr>,
+        then_branch: Vec<Expr>,
+        else_branch: Option<Vec<Expr>>,
+    },
+    BinOp {
+        left: Box<Expr>,
+        op: BinOp,
+        right: Box<Expr>,
+    },
+    UnaryOp {
+        op: UnaryOp,
+        expr: Box<Expr>,
+    },
     String(String),
-    Unit,
+    Variable(String),
+    Call {
+        function: Box<Expr>,
+        args: Vec<Expr>,
+    },
+    StmtExpr(Box<Stmt>),
     Tuple(Vec<Expr>),
-    Var(String),
-    BinaryOp(Box<Expr>, BinOp, Box<Expr>),
-    Call(String, Vec<Expr>),
-    IfElse(Box<Expr>, Block, Block),
-    While(Box<Expr>, Block),
-    MemberAccess(Box<Expr>, String),
-    TupleAccess(Box<Expr>, usize),
+    List(Vec<Expr>),
+    MemberAccess {
+        object: Box<Expr>,
+        member: String,
+    },
+    Index {
+        object: Box<Expr>,
+        index: Box<Expr>,
+    },
+    TupleAccess {
+        tuple: Box<Expr>,
+        index: usize,
+    },
 }
 
-enum Stmt {
-    Let(String, Type, Expr),
-    Return(Expr),
+pub enum BinOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+    And,
+    Or,
+    Equal,
+    NotEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
+}
+
+pub enum UnaryOp {
+    Neg,
+    Not,
+}
+
+pub enum Stmt {
+    Expr(Expr),
+    Let {
+        name: String,
+        ty: Option<Type>, // ← was just `Type` before
+        expr: Expr,
+    },
+    Fun {
+        name: String,
+        params: Vec<(String, Type)>,
+        return_type: Type,
+        body: Vec<Stmt>,
+    },
+    Return(Option<Expr>),
     Print(Expr),
-    ExprStmt(Expr),
-    Fun(String, Vec<(String, Type)>, Type, Block),
-    While(Box<Expr>, Block),
+    Reassignment {
+        name: String,
+        expr: Expr,
+    },
+    While {
+        condition: Expr,
+        body: Vec<Stmt>,
+    },
     Break,
 }
 
-enum Type {
+pub enum Type {
     Int,
-    Float,
     Bool,
     String,
     Unit,
+    Float,
     Tuple(Vec<Type>),
+    Function {
+        params: Vec<Type>,
+        return_type: Box<Type>,
+    },
+    List(Box<Type>),
 }
+
 ```
 
 ---
