@@ -4,3 +4,4 @@ print has semicolon; other function calls dont.
 tuples with one element have to have comma. (e.g. (1,) is a tuple, (1) wont work)
 tuples are inmutable.
 comments at the end of a file break the file.
+cant handle whitespace at end of file (main.rs takes care of it, but tests do not)

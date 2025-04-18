@@ -54,8 +54,7 @@ mod type_check_tests {
             while result > 0 {
                 print(result);
                 break;
-            }
-        "#;
+            }"#;
 
         let tokens = lex(code).unwrap();
         let stmts = parse(&tokens).unwrap();
@@ -70,8 +69,7 @@ mod type_check_tests {
 
             while x {
                 print(x);
-            }
-        "#;
+            }"#;
 
         let tokens = lex(code).unwrap();
         let stmts = parse(&tokens).unwrap();
@@ -86,8 +84,7 @@ mod type_check_tests {
     #[test]
     fn test_invalid_break_outside_loop() {
         let code = r#"
-            break;
-        "#;
+            break;"#;
 
         let tokens = lex(code).unwrap();
         let stmts = parse(&tokens).unwrap();
@@ -101,8 +98,7 @@ mod type_check_tests {
         let code = r#"
             fun add(a: Int, b: Int): Int {
                 return true; // Invalid: returning Bool instead of Int
-            }
-        "#;
+            }"#;
 
         let tokens = lex(code).unwrap();
         let stmts = parse(&tokens).unwrap();
@@ -125,8 +121,7 @@ mod type_check_tests {
                     break;
                 }
                 x = x + 1;
-            }
-        "#;
+            }"#;
 
         let tokens = lex(code).unwrap();
         let stmts = parse(&tokens).unwrap();
