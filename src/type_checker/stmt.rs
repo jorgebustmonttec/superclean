@@ -18,6 +18,9 @@ pub fn type_check_stmt(stmt: &Stmt, env: &mut TypeEnv) -> Result<(), String> {
             Ok(())
         }
         Stmt::Print(expr) => type_check_print_stmt(expr, env),
+        Stmt::While { condition, body } => type_check_while_stmt(condition, body, env),
+        Stmt::Break => Err("`break` statement outside of a loop".to_string()),
+        Stmt::Return(_) => Err("`return` statement outside of a function".to_string()),
         _ => Err(format!("Unsupported statement: {:?}", stmt)),
     }
 }
@@ -206,6 +209,32 @@ fn type_check_fun_decl(stmt: &Stmt, env: &mut TypeEnv) -> Result<(), String> {
         println!("[type_check_fun_decl] Invalid statement passed to function type checker");
         Err("Invalid statement for type_check_fun_decl".to_string())
     }
+}
+
+fn type_check_while_stmt(condition: &Expr, body: &[Stmt], env: &mut TypeEnv) -> Result<(), String> {
+    println!("[type_check_while_stmt] Type checking while loop...");
+
+    // Check that the condition evaluates to a Bool
+    let condition_type = type_check_expr(condition, env)?;
+    if condition_type != Type::Bool {
+        return Err(format!(
+            "While loop condition must be Bool, found {:?}",
+            condition_type
+        ));
+    }
+
+    // Type-check the body of the loop
+    for stmt in body {
+        match stmt {
+            Stmt::Break => {
+                println!("[type_check_while_stmt] Found valid `break` statement.");
+                continue; // `break` is valid inside a loop
+            }
+            _ => type_check_stmt(stmt, env)?,
+        }
+    }
+
+    Ok(())
 }
 
 fn type_check_print_stmt(expr: &Expr, env: &mut TypeEnv) -> Result<(), String> {
@@ -432,6 +461,109 @@ mod stmt_type_tests {
                 result.unwrap_err(),
                 "Function 'duplicate' is already declared"
             );
+        }
+    }
+
+    mod while_tests {
+        use super::*;
+
+        #[test]
+        fn test_valid_while_loop() {
+            let mut env = TypeEnv::new();
+            env.variables.insert("x".to_string(), Type::Int);
+
+            let stmt = Stmt::While {
+                condition: Expr::BinOp {
+                    left: Box::new(Expr::Variable("x".to_string())),
+                    op: crate::ast::BinOp::Less,
+                    right: Box::new(Expr::Int(10)),
+                },
+                body: vec![Stmt::Reassignment {
+                    name: "x".to_string(),
+                    expr: Expr::BinOp {
+                        left: Box::new(Expr::Variable("x".to_string())),
+                        op: crate::ast::BinOp::Add,
+                        right: Box::new(Expr::Int(1)),
+                    },
+                }],
+            };
+
+            assert!(type_check_stmt(&stmt, &mut env).is_ok());
+        }
+
+        #[test]
+        fn test_while_with_break() {
+            let mut env = TypeEnv::new();
+
+            let stmt = Stmt::While {
+                condition: Expr::Bool(true),
+                body: vec![Stmt::Break],
+            };
+
+            assert!(type_check_stmt(&stmt, &mut env).is_ok());
+        }
+
+        #[test]
+        fn test_while_with_invalid_condition() {
+            let mut env = TypeEnv::new();
+
+            let stmt = Stmt::While {
+                condition: Expr::Int(42), // Invalid: condition is not Bool
+                body: vec![],
+            };
+
+            let result = type_check_stmt(&stmt, &mut env);
+            assert!(result.is_err());
+            assert_eq!(
+                result.unwrap_err(),
+                "While loop condition must be Bool, found Int"
+            );
+        }
+
+        #[test]
+        fn test_break_outside_loop() {
+            let mut env = TypeEnv::new();
+
+            let stmt = Stmt::Break; // Invalid: break outside of a loop
+
+            let result = type_check_stmt(&stmt, &mut env);
+            assert!(result.is_err());
+            assert_eq!(result.unwrap_err(), "`break` statement outside of a loop");
+        }
+
+        #[test]
+        fn test_nested_while_loops() {
+            let mut env = TypeEnv::new();
+            env.variables.insert("x".to_string(), Type::Int);
+            env.variables.insert("y".to_string(), Type::Int);
+
+            let stmt = Stmt::While {
+                condition: Expr::BinOp {
+                    left: Box::new(Expr::Variable("x".to_string())),
+                    op: crate::ast::BinOp::Less,
+                    right: Box::new(Expr::Int(10)),
+                },
+                body: vec![
+                    Stmt::While {
+                        condition: Expr::BinOp {
+                            left: Box::new(Expr::Variable("y".to_string())),
+                            op: crate::ast::BinOp::Less,
+                            right: Box::new(Expr::Int(5)),
+                        },
+                        body: vec![Stmt::Break],
+                    },
+                    Stmt::Reassignment {
+                        name: "x".to_string(),
+                        expr: Expr::BinOp {
+                            left: Box::new(Expr::Variable("x".to_string())),
+                            op: crate::ast::BinOp::Add,
+                            right: Box::new(Expr::Int(1)),
+                        },
+                    },
+                ],
+            };
+
+            assert!(type_check_stmt(&stmt, &mut env).is_ok());
         }
     }
 }
