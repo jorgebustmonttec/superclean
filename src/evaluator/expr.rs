@@ -24,6 +24,7 @@ pub fn eval_expr(expr: &Expr, env: &mut Env) -> Result<Value, String> {
             then_branch,
             else_branch,
         } => eval_if_else(condition, then_branch, else_branch, env),
+        Expr::Call { function, args } => eval_call(function, args, env),
         _ => Err(format!("Unsupported expression: {:?}", expr)),
     }
 }
@@ -155,18 +156,68 @@ fn eval_if_else(
     };
 
     // Evaluate each expression in the selected branch
-    let mut last_value = Value::Unit;
     for expr in branch {
-        last_value = match expr {
+        let result = match expr {
             Expr::StmtExpr(stmt) => {
-                eval_stmt(stmt, env)?; // Evaluate the statement
-                Value::Unit // Statement expressions always return Unit
+                // Evaluate the statement and propagate its result if it is not Unit
+                if let Some(value) = eval_stmt(stmt, env)? {
+                    return Ok(value); // Propagate the result (e.g., Break)
+                }
+                Value::Unit // Otherwise, return Unit
             }
             _ => eval_expr(expr, env)?, // Evaluate the expression
         };
+
+        // If the result is a meaningful value (e.g., Break), propagate it
+        if result != Value::Unit {
+            return Ok(result);
+        }
     }
 
-    Ok(last_value)
+    Ok(Value::Unit) // Default to Unit if no meaningful value is returned
+}
+
+/// Evaluates a function call by substituting arguments into the function body.
+fn eval_call(function: &Expr, args: &[Expr], env: &mut Env) -> Result<Value, String> {
+    // Evaluate the function expression
+    let func_name = match function {
+        Expr::Variable(name) => name,
+        _ => return Err(format!("Expected a function name, found {:?}", function)),
+    };
+
+    // Retrieve the function from the environment
+    let func = match env.get_function(func_name) {
+        Some(f) => f.clone(),
+        None => return Err(format!("Function '{}' not found", func_name)),
+    };
+
+    // Ensure the number of arguments matches the number of parameters
+    if func.params.len() != args.len() {
+        return Err(format!(
+            "Function '{}' expected {} arguments but got {}",
+            func_name,
+            func.params.len(),
+            args.len()
+        ));
+    }
+
+    // Create a new environment for the function call
+    let mut func_env = env.clone();
+
+    // Bind arguments to parameters in the new environment
+    for ((param_name, _param_type), arg_expr) in func.params.iter().zip(args.iter()) {
+        let arg_value = eval_expr(arg_expr, env)?;
+        func_env.set(param_name.clone(), arg_value);
+    }
+
+    // Evaluate the function body
+    for stmt in &func.body {
+        if let Some(value) = eval_stmt(stmt, &mut func_env)? {
+            return Ok(value); // Return the value if a return statement is encountered
+        }
+    }
+
+    Ok(Value::Unit) // Default return value is Unit
 }
 
 /// Converts a `Value` to a string for concatenation.
