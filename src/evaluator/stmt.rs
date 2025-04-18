@@ -65,7 +65,7 @@ fn eval_fun_decl(
         return_type: return_type.clone(),
         body: body.clone(),
     };
-    env.add_function(name.clone(), function); // Use add_function to store the function
+    env.add_function(name.clone(), function);
     Ok(None)
 }
 
@@ -348,8 +348,6 @@ mod stmt_tests {
             assert_eq!(env.get("x"), Some(&Value::Int(3)));
         }
 
-        /*
-
         #[test]
         fn while_loop_with_break() {
             let mut env = Env::new();
@@ -381,7 +379,6 @@ mod stmt_tests {
             assert_eq!(env.get("x"), Some(&Value::Int(5)));
         }
 
-        */
         #[test]
         fn while_loop_with_false_condition() {
             let mut env = Env::new();
