@@ -10,6 +10,8 @@ pub fn eval_expr(expr: &Expr, env: &mut Env) -> Result<Value, String> {
         Expr::String(value) => Ok(Value::String(value.clone())),
         Expr::BinOp { left, op, right } => eval_binop(left, op, right, env),
         Expr::UnaryOp { op, expr } => eval_unary_op(op, expr, env),
+        Expr::Tuple(elements) => eval_tuple(elements, env),
+        Expr::TupleAccess { tuple, index } => eval_tuple_access(tuple, *index, env),
         _ => Err(format!("Unsupported expression: {:?}", expr)),
     }
 }
@@ -93,6 +95,33 @@ fn eval_binop(left: &Expr, op: &BinOp, right: &Expr, env: &mut Env) -> Result<Va
             "Unsupported binary operation: {:?} {:?} {:?}",
             left, op, right
         )),
+    }
+}
+
+/// Evaluates a tuple creation expression.
+fn eval_tuple(elements: &[Expr], env: &mut Env) -> Result<Value, String> {
+    let mut values = Vec::new();
+    for element in elements {
+        values.push(eval_expr(element, env)?);
+    }
+    Ok(Value::Tuple(values))
+}
+
+/// Evaluates a tuple access expression.
+fn eval_tuple_access(tuple: &Expr, index: usize, env: &mut Env) -> Result<Value, String> {
+    let tuple_value = eval_expr(tuple, env)?;
+    if let Value::Tuple(elements) = tuple_value {
+        if index < elements.len() {
+            Ok(elements[index].clone())
+        } else {
+            Err(format!(
+                "Tuple index out of bounds: {} (tuple has {} elements)",
+                index,
+                elements.len()
+            ))
+        }
+    } else {
+        Err(format!("Expected a tuple, found {:?}", tuple_value))
     }
 }
 
@@ -531,6 +560,87 @@ mod eval_test {
             };
             let result = eval_expr(&expr, &mut env);
             assert_eq!(result, Ok(Value::String("is true: true".to_string())));
+        }
+    }
+
+    mod tuple {
+        use super::*;
+
+        #[test]
+        fn create_tuple() {
+            let mut env = Env::new();
+            let expr = Expr::Tuple(vec![
+                Expr::Int(1),
+                Expr::Bool(true),
+                Expr::String("hello".to_string()),
+            ]);
+            let result = eval_expr(&expr, &mut env);
+            assert_eq!(
+                result,
+                Ok(Value::Tuple(vec![
+                    Value::Int(1),
+                    Value::Bool(true),
+                    Value::String("hello".to_string())
+                ]))
+            );
+        }
+
+        #[test]
+        fn access_tuple_element() {
+            let mut env = Env::new();
+            let tuple_expr = Expr::Tuple(vec![
+                Expr::Int(1),
+                Expr::Bool(true),
+                Expr::String("hello".to_string()),
+            ]);
+            let tuple_value = eval_expr(&tuple_expr, &mut env).unwrap();
+
+            let expr = Expr::TupleAccess {
+                tuple: Box::new(tuple_expr),
+                index: 1,
+            };
+            let result = eval_expr(&expr, &mut env);
+            assert_eq!(result, Ok(Value::Bool(true)));
+        }
+
+        #[test]
+        fn access_out_of_bounds() {
+            let mut env = Env::new();
+            let tuple_expr = Expr::Tuple(vec![Expr::Int(1), Expr::Bool(true)]);
+            let expr = Expr::TupleAccess {
+                tuple: Box::new(tuple_expr),
+                index: 5, // Out of bounds
+            };
+            let result = eval_expr(&expr, &mut env);
+            assert_eq!(
+                result,
+                Err("Tuple index out of bounds: 5 (tuple has 2 elements)".to_string())
+            );
+        }
+
+        #[test]
+        fn access_non_tuple() {
+            let mut env = Env::new();
+            let expr = Expr::TupleAccess {
+                tuple: Box::new(Expr::Int(42)), // Not a tuple
+                index: 0,
+            };
+            let result = eval_expr(&expr, &mut env);
+            assert_eq!(result, Err("Expected a tuple, found Int(42)".to_string()));
+        }
+
+        #[test]
+        fn nested_tuple_access() {
+            let mut env = Env::new();
+            let expr = Expr::TupleAccess {
+                tuple: Box::new(Expr::Tuple(vec![
+                    Expr::Int(1),
+                    Expr::Tuple(vec![Expr::Int(2), Expr::Int(3)]),
+                ])),
+                index: 1,
+            };
+            let result = eval_expr(&expr, &mut env);
+            assert_eq!(result, Ok(Value::Tuple(vec![Value::Int(2), Value::Int(3)])));
         }
     }
 }
