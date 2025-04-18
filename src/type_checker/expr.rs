@@ -1,9 +1,32 @@
 use super::TypeEnv;
-use crate::ast::{BinOp, Expr, Type, UnaryOp};
+use crate::{
+    ast::{BinOp, Expr, Type, UnaryOp},
+    type_checker::type_check_stmt,
+};
 
 /// Type-checks an expression and returns its type.
-pub fn type_check_expr(expr: &Expr, env: &TypeEnv) -> Result<Type, String> {
+pub fn type_check_expr(expr: &Expr, env: &mut TypeEnv) -> Result<Type, String> {
+    println!("[type_check_expr] Type checking expression: {:?}", expr);
     match expr {
+        Expr::Variable(name) => {
+            println!(
+                "[type_check_expr] Looking up variable '{}' in environment",
+                name
+            );
+            if let Some(var_type) = env.variables.get(name) {
+                println!(
+                    "[type_check_expr] Found variable '{}' with type {:?}",
+                    name, var_type
+                );
+                Ok(var_type.clone())
+            } else {
+                println!(
+                    "[type_check_expr] Variable '{}' not found in environment!",
+                    name
+                );
+                Err(format!("Variable '{}' not declared", name))
+            }
+        }
         Expr::Int(_) => type_check_literal(expr),
         Expr::Bool(_) => type_check_literal(expr),
         Expr::Float(_) => type_check_literal(expr),
@@ -18,7 +41,7 @@ pub fn type_check_expr(expr: &Expr, env: &TypeEnv) -> Result<Type, String> {
             else_branch,
         } => type_check_if_else(condition, then_branch, else_branch, env),
         Expr::StmtExpr(stmt) => {
-            //type_check_stmt(stmt, env)?; // Ensure the statement is valid
+            type_check_stmt(stmt, env)?; // Ensure the statement is valid
             Ok(Type::Unit) // StmtExpr always evaluates to Unit
         }
         _ => Err(format!("Unsupported expression: {:?}", expr)),
@@ -27,6 +50,7 @@ pub fn type_check_expr(expr: &Expr, env: &TypeEnv) -> Result<Type, String> {
 
 /// Type-checks a literal (e.g., integers, booleans, floats).
 fn type_check_literal(expr: &Expr) -> Result<Type, String> {
+    println!("[type_check_literal] Type checking literal: {:?}", expr);
     match expr {
         Expr::Int(_) => Ok(Type::Int),
         Expr::Bool(_) => Ok(Type::Bool),
@@ -37,9 +61,20 @@ fn type_check_literal(expr: &Expr) -> Result<Type, String> {
 }
 
 /// Type-checks a binary operation.
-fn type_check_binop(left: &Expr, op: &BinOp, right: &Expr, env: &TypeEnv) -> Result<Type, String> {
+fn type_check_binop(
+    left: &Expr,
+    op: &BinOp,
+    right: &Expr,
+    env: &mut TypeEnv,
+) -> Result<Type, String> {
+    println!(
+        "[type_check_binop] Type checking binary operation: {:?} {:?} {:?}",
+        left, op, right
+    );
     let left_type = type_check_expr(left, env)?;
+    println!("[type_check_binop] Left type: {:?}", left_type);
     let right_type = type_check_expr(right, env)?;
+    println!("[type_check_binop] Right type: {:?}", right_type);
 
     match (left_type.clone(), right_type.clone(), op) {
         // Arithmetic operations for integers
@@ -92,7 +127,7 @@ fn type_check_binop(left: &Expr, op: &BinOp, right: &Expr, env: &TypeEnv) -> Res
 }
 
 /// Type-checks a unary operation.
-fn type_check_unary_op(op: &UnaryOp, expr: &Expr, env: &TypeEnv) -> Result<Type, String> {
+fn type_check_unary_op(op: &UnaryOp, expr: &Expr, env: &mut TypeEnv) -> Result<Type, String> {
     let expr_type = type_check_expr(expr, env)?;
 
     match (op, expr_type.clone()) {
@@ -107,7 +142,7 @@ fn type_check_unary_op(op: &UnaryOp, expr: &Expr, env: &TypeEnv) -> Result<Type,
 }
 
 /// Type-checks a tuple expression.
-fn type_check_tuple(elements: &[Expr], env: &TypeEnv) -> Result<Type, String> {
+fn type_check_tuple(elements: &[Expr], env: &mut TypeEnv) -> Result<Type, String> {
     let mut types = Vec::new();
     for element in elements {
         types.push(type_check_expr(element, env)?);
@@ -116,7 +151,7 @@ fn type_check_tuple(elements: &[Expr], env: &TypeEnv) -> Result<Type, String> {
 }
 
 /// Type-checks tuple access expressions.
-fn type_check_tuple_access(tuple: &Expr, index: usize, env: &TypeEnv) -> Result<Type, String> {
+fn type_check_tuple_access(tuple: &Expr, index: usize, env: &mut TypeEnv) -> Result<Type, String> {
     let tuple_type = type_check_expr(tuple, env)?;
     if let Type::Tuple(types) = tuple_type {
         if index < types.len() {
@@ -141,7 +176,7 @@ fn type_check_if_else(
     condition: &Expr,
     then_branch: &[Expr],
     else_branch: &Option<Vec<Expr>>,
-    env: &TypeEnv,
+    env: &mut TypeEnv,
 ) -> Result<Type, String> {
     // Check that the condition is a boolean
     let condition_type = type_check_expr(condition, env)?;
@@ -192,37 +227,37 @@ mod expr_type_tests {
         use super::*;
 
         #[test]
-        fn test_int_literal() {
+        fn int() {
             let expr = Expr::Int(42);
-            let env = TypeEnv::new();
-            let result = type_check_expr(&expr, &env);
+            let mut env = TypeEnv::new();
+            let result = type_check_expr(&expr, &mut env);
             assert_eq!(result, Ok(Type::Int));
         }
 
         #[test]
-        fn test_boolean_literals() {
-            let env = TypeEnv::new();
+        fn boolean() {
+            let mut env = TypeEnv::new();
 
             let expr = Expr::Bool(true);
-            assert_eq!(type_check_expr(&expr, &env), Ok(Type::Bool));
+            assert_eq!(type_check_expr(&expr, &mut env), Ok(Type::Bool));
 
             let expr = Expr::Bool(false);
-            assert_eq!(type_check_expr(&expr, &env), Ok(Type::Bool));
+            assert_eq!(type_check_expr(&expr, &mut env), Ok(Type::Bool));
         }
 
         #[test]
-        fn test_float_literal() {
+        fn float() {
             let expr = Expr::Float(3.14);
-            let env = TypeEnv::new();
-            let result = type_check_expr(&expr, &env);
+            let mut env = TypeEnv::new();
+            let result = type_check_expr(&expr, &mut env);
             assert_eq!(result, Ok(Type::Float));
         }
 
         #[test]
-        fn test_string_literal() {
+        fn string() {
             let expr = Expr::String("Hello".to_string());
-            let env = TypeEnv::new();
-            let result = type_check_expr(&expr, &env);
+            let mut env = TypeEnv::new();
+            let result = type_check_expr(&expr, &mut env);
             assert_eq!(result, Ok(Type::String));
         }
     }
@@ -231,14 +266,14 @@ mod expr_type_tests {
         use super::*;
 
         #[test]
-        fn test_addition() {
+        fn addition() {
             let expr = Expr::BinOp {
                 left: Box::new(Expr::Int(1)),
                 op: BinOp::Add,
                 right: Box::new(Expr::Int(2)),
             };
-            let env = TypeEnv::new();
-            let result = type_check_expr(&expr, &env);
+            let mut env = TypeEnv::new();
+            let result = type_check_expr(&expr, &mut env);
             assert_eq!(result, Ok(Type::Int));
 
             let expr = Expr::BinOp {
@@ -246,8 +281,8 @@ mod expr_type_tests {
                 op: BinOp::Add,
                 right: Box::new(Expr::Float(2.0)),
             };
-            let env = TypeEnv::new();
-            let result = type_check_expr(&expr, &env);
+            let mut env = TypeEnv::new();
+            let result = type_check_expr(&expr, &mut env);
             assert_eq!(result, Ok(Type::Float));
 
             let expr = Expr::BinOp {
@@ -255,26 +290,26 @@ mod expr_type_tests {
                 op: BinOp::Add,
                 right: Box::new(Expr::String(" World".to_string())),
             };
-            let env = TypeEnv::new();
-            let result = type_check_expr(&expr, &env);
+            let mut env = TypeEnv::new();
+            let result = type_check_expr(&expr, &mut env);
             assert_eq!(result, Ok(Type::String));
         }
 
         #[test]
-        fn test_invalid_operation() {
+        fn invalid_operation() {
             let expr = Expr::BinOp {
                 left: Box::new(Expr::Int(1)),
                 op: BinOp::Add,
                 right: Box::new(Expr::Bool(true)), // Invalid: Int + Bool
             };
-            let env = TypeEnv::new();
-            let result = type_check_expr(&expr, &env);
+            let mut env = TypeEnv::new();
+            let result = type_check_expr(&expr, &mut env);
             assert!(result.is_err());
         }
 
         #[test]
-        fn test_comparisons() {
-            let env = TypeEnv::new();
+        fn comparisons() {
+            let mut env = TypeEnv::new();
 
             // Valid comparisons
             let expr = Expr::BinOp {
@@ -282,21 +317,21 @@ mod expr_type_tests {
                 op: BinOp::Equal,
                 right: Box::new(Expr::Int(2)),
             };
-            assert_eq!(type_check_expr(&expr, &env), Ok(Type::Bool));
+            assert_eq!(type_check_expr(&expr, &mut env), Ok(Type::Bool));
 
             let expr = Expr::BinOp {
                 left: Box::new(Expr::Int(3)),
                 op: BinOp::Less,
                 right: Box::new(Expr::Int(4)),
             };
-            assert_eq!(type_check_expr(&expr, &env), Ok(Type::Bool));
+            assert_eq!(type_check_expr(&expr, &mut env), Ok(Type::Bool));
 
             let expr = Expr::BinOp {
                 left: Box::new(Expr::String("Hello".to_string())),
                 op: BinOp::Equal,
                 right: Box::new(Expr::String("Hello".to_string())),
             };
-            assert_eq!(type_check_expr(&expr, &env), Ok(Type::Bool));
+            assert_eq!(type_check_expr(&expr, &mut env), Ok(Type::Bool));
 
             // Invalid comparison
             let expr = Expr::BinOp {
@@ -304,12 +339,12 @@ mod expr_type_tests {
                 op: BinOp::Equal,
                 right: Box::new(Expr::Bool(true)), // Invalid: Int == Bool
             };
-            assert!(type_check_expr(&expr, &env).is_err());
+            assert!(type_check_expr(&expr, &mut env).is_err());
         }
 
         #[test]
-        fn test_logical_operations() {
-            let env = TypeEnv::new();
+        fn logical_operations() {
+            let mut env = TypeEnv::new();
 
             // Valid logical operations
             let expr = Expr::BinOp {
@@ -317,14 +352,14 @@ mod expr_type_tests {
                 op: BinOp::And,
                 right: Box::new(Expr::Bool(false)),
             };
-            assert_eq!(type_check_expr(&expr, &env), Ok(Type::Bool));
+            assert_eq!(type_check_expr(&expr, &mut env), Ok(Type::Bool));
 
             let expr = Expr::BinOp {
                 left: Box::new(Expr::Bool(true)),
                 op: BinOp::Or,
                 right: Box::new(Expr::Bool(false)),
             };
-            assert_eq!(type_check_expr(&expr, &env), Ok(Type::Bool));
+            assert_eq!(type_check_expr(&expr, &mut env), Ok(Type::Bool));
 
             // Invalid logical operation
             let expr = Expr::BinOp {
@@ -332,12 +367,12 @@ mod expr_type_tests {
                 op: BinOp::And,
                 right: Box::new(Expr::Int(1)), // Invalid: Bool && Int
             };
-            assert!(type_check_expr(&expr, &env).is_err());
+            assert!(type_check_expr(&expr, &mut env).is_err());
         }
 
         #[test]
-        fn test_float_operations() {
-            let env = TypeEnv::new();
+        fn float_operations() {
+            let mut env = TypeEnv::new();
 
             // Valid float operations
             let expr = Expr::BinOp {
@@ -345,14 +380,14 @@ mod expr_type_tests {
                 op: BinOp::Add,
                 right: Box::new(Expr::Float(2.2)),
             };
-            assert_eq!(type_check_expr(&expr, &env), Ok(Type::Float));
+            assert_eq!(type_check_expr(&expr, &mut env), Ok(Type::Float));
 
             let expr = Expr::BinOp {
                 left: Box::new(Expr::Float(3.3)),
                 op: BinOp::Mul,
                 right: Box::new(Expr::Float(4.4)),
             };
-            assert_eq!(type_check_expr(&expr, &env), Ok(Type::Float));
+            assert_eq!(type_check_expr(&expr, &mut env), Ok(Type::Float));
 
             // Invalid float operation with int
             let expr = Expr::BinOp {
@@ -360,12 +395,12 @@ mod expr_type_tests {
                 op: BinOp::Add,
                 right: Box::new(Expr::Int(2)), // Invalid: Float + Int
             };
-            assert!(type_check_expr(&expr, &env).is_err());
+            assert!(type_check_expr(&expr, &mut env).is_err());
         }
 
         #[test]
-        fn test_float_comparisons() {
-            let env = TypeEnv::new();
+        fn float_comparisons() {
+            let mut env = TypeEnv::new();
 
             // Valid float comparisons
             let expr = Expr::BinOp {
@@ -373,14 +408,14 @@ mod expr_type_tests {
                 op: BinOp::Less,
                 right: Box::new(Expr::Float(2.2)),
             };
-            assert_eq!(type_check_expr(&expr, &env), Ok(Type::Bool));
+            assert_eq!(type_check_expr(&expr, &mut env), Ok(Type::Bool));
 
             let expr = Expr::BinOp {
                 left: Box::new(Expr::Float(3.3)),
                 op: BinOp::Equal,
                 right: Box::new(Expr::Float(3.3)),
             };
-            assert_eq!(type_check_expr(&expr, &env), Ok(Type::Bool));
+            assert_eq!(type_check_expr(&expr, &mut env), Ok(Type::Bool));
 
             // Invalid float comparison with int
             let expr = Expr::BinOp {
@@ -388,7 +423,7 @@ mod expr_type_tests {
                 op: BinOp::Less,
                 right: Box::new(Expr::Int(2)), // Invalid: Float < Int
             };
-            assert!(type_check_expr(&expr, &env).is_err());
+            assert!(type_check_expr(&expr, &mut env).is_err());
         }
     }
 
@@ -396,48 +431,48 @@ mod expr_type_tests {
         use super::*;
 
         #[test]
-        fn test_negation() {
-            let env = TypeEnv::new();
+        fn negation() {
+            let mut env = TypeEnv::new();
 
             // Negation for integers
             let expr = Expr::UnaryOp {
                 op: UnaryOp::Neg,
                 expr: Box::new(Expr::Int(42)),
             };
-            assert_eq!(type_check_expr(&expr, &env), Ok(Type::Int));
+            assert_eq!(type_check_expr(&expr, &mut env), Ok(Type::Int));
 
             // Negation for floats
             let expr = Expr::UnaryOp {
                 op: UnaryOp::Neg,
                 expr: Box::new(Expr::Float(3.14)),
             };
-            assert_eq!(type_check_expr(&expr, &env), Ok(Type::Float));
+            assert_eq!(type_check_expr(&expr, &mut env), Ok(Type::Float));
 
             // Invalid negation
             let expr = Expr::UnaryOp {
                 op: UnaryOp::Neg,
                 expr: Box::new(Expr::Bool(true)), // Invalid: Negation on Bool
             };
-            assert!(type_check_expr(&expr, &env).is_err());
+            assert!(type_check_expr(&expr, &mut env).is_err());
         }
 
         #[test]
-        fn test_logical_not() {
-            let env = TypeEnv::new();
+        fn logical_not() {
+            let mut env = TypeEnv::new();
 
             // Logical NOT for booleans
             let expr = Expr::UnaryOp {
                 op: UnaryOp::Not,
                 expr: Box::new(Expr::Bool(true)),
             };
-            assert_eq!(type_check_expr(&expr, &env), Ok(Type::Bool));
+            assert_eq!(type_check_expr(&expr, &mut env), Ok(Type::Bool));
 
             // Invalid logical NOT
             let expr = Expr::UnaryOp {
                 op: UnaryOp::Not,
                 expr: Box::new(Expr::Int(1)), // Invalid: Logical NOT on Int
             };
-            assert!(type_check_expr(&expr, &env).is_err());
+            assert!(type_check_expr(&expr, &mut env).is_err());
         }
     }
 
@@ -445,7 +480,7 @@ mod expr_type_tests {
         use super::*;
 
         #[test]
-        fn test_nested_expressions() {
+        fn nested_expressions() {
             let expr = Expr::BinOp {
                 left: Box::new(Expr::BinOp {
                     left: Box::new(Expr::Int(1)),
@@ -455,8 +490,8 @@ mod expr_type_tests {
                 op: BinOp::Mul,
                 right: Box::new(Expr::Int(3)),
             };
-            let env = TypeEnv::new();
-            let result = type_check_expr(&expr, &env);
+            let mut env = TypeEnv::new();
+            let result = type_check_expr(&expr, &mut env);
             assert_eq!(result, Ok(Type::Int));
         }
     }
@@ -465,47 +500,47 @@ mod expr_type_tests {
         use super::*;
 
         #[test]
-        fn test_tuple_creation() {
-            let env = TypeEnv::new();
+        fn tuple_creation() {
+            let mut env = TypeEnv::new();
 
             let expr = Expr::Tuple(vec![Expr::Int(1), Expr::Bool(true)]);
-            let result = type_check_expr(&expr, &env);
+            let result = type_check_expr(&expr, &mut env);
             assert_eq!(result, Ok(Type::Tuple(vec![Type::Int, Type::Bool])));
         }
 
         #[test]
-        fn test_tuple_access_valid() {
-            let env = TypeEnv::new();
+        fn access_valid() {
+            let mut env = TypeEnv::new();
 
             let expr = Expr::TupleAccess {
                 tuple: Box::new(Expr::Tuple(vec![Expr::Int(1), Expr::Bool(true)])),
                 index: 1,
             };
-            let result = type_check_expr(&expr, &env);
+            let result = type_check_expr(&expr, &mut env);
             assert_eq!(result, Ok(Type::Bool));
         }
 
         #[test]
-        fn test_tuple_access_out_of_bounds() {
-            let env = TypeEnv::new();
+        fn access_out_of_bounds() {
+            let mut env = TypeEnv::new();
 
             let expr = Expr::TupleAccess {
                 tuple: Box::new(Expr::Tuple(vec![Expr::Int(1), Expr::Bool(true)])),
                 index: 2, // Out of bounds
             };
-            let result = type_check_expr(&expr, &env);
+            let result = type_check_expr(&expr, &mut env);
             assert!(result.is_err());
         }
 
         #[test]
-        fn test_tuple_access_non_tuple() {
-            let env = TypeEnv::new();
+        fn access_non_tuple() {
+            let mut env = TypeEnv::new();
 
             let expr = Expr::TupleAccess {
                 tuple: Box::new(Expr::Int(42)), // Not a tuple
                 index: 0,
             };
-            let result = type_check_expr(&expr, &env);
+            let result = type_check_expr(&expr, &mut env);
             assert!(result.is_err());
         }
     }
@@ -514,54 +549,54 @@ mod expr_type_tests {
         use super::*;
 
         #[test]
-        fn test_if_else_with_same_branch_types() {
-            let env = TypeEnv::new();
+        fn same_branch_types() {
+            let mut env = TypeEnv::new();
 
             let expr = Expr::IfElse {
                 condition: Box::new(Expr::Bool(true)),
                 then_branch: vec![Expr::Int(1)],
                 else_branch: Some(vec![Expr::Int(2)]),
             };
-            let result = type_check_expr(&expr, &env);
+            let result = type_check_expr(&expr, &mut env);
             assert_eq!(result, Ok(Type::Int));
         }
 
         #[test]
-        fn test_if_else_with_unit_branches() {
-            let env = TypeEnv::new();
+        fn unit_branches() {
+            let mut env = TypeEnv::new();
 
             let expr = Expr::IfElse {
                 condition: Box::new(Expr::Bool(false)),
                 then_branch: vec![],
                 else_branch: None,
             };
-            let result = type_check_expr(&expr, &env);
+            let result = type_check_expr(&expr, &mut env);
             assert_eq!(result, Ok(Type::Unit));
         }
 
         #[test]
-        fn test_if_else_with_mismatched_branch_types() {
-            let env = TypeEnv::new();
+        fn mismatched_branch_types() {
+            let mut env = TypeEnv::new();
 
             let expr = Expr::IfElse {
                 condition: Box::new(Expr::Bool(true)),
                 then_branch: vec![Expr::Int(1)],
                 else_branch: Some(vec![Expr::Bool(false)]), // Mismatched types
             };
-            let result = type_check_expr(&expr, &env);
+            let result = type_check_expr(&expr, &mut env);
             assert!(result.is_err());
         }
 
         #[test]
-        fn test_if_else_with_non_boolean_condition() {
-            let env = TypeEnv::new();
+        fn non_boolean_condition() {
+            let mut env = TypeEnv::new();
 
             let expr = Expr::IfElse {
                 condition: Box::new(Expr::Int(1)), // Invalid: condition is not Bool
                 then_branch: vec![Expr::Int(1)],
                 else_branch: Some(vec![Expr::Int(2)]),
             };
-            let result = type_check_expr(&expr, &env);
+            let result = type_check_expr(&expr, &mut env);
             assert!(result.is_err());
         }
     }
@@ -571,25 +606,25 @@ mod expr_type_tests {
         use crate::ast::Stmt;
 
         #[test]
-        fn test_stmt_expr_with_valid_statement() {
-            let env = TypeEnv::new();
+        fn valid_statement() {
+            let mut env = TypeEnv::new();
 
             let expr = Expr::StmtExpr(Box::new(Stmt::Print(Expr::String(
                 "Hello, world!".to_string(),
             ))));
-            let result = type_check_expr(&expr, &env);
+            let result = type_check_expr(&expr, &mut env);
             assert_eq!(result, Ok(Type::Unit)); // StmtExpr always evaluates to Unit
         }
 
         #[test]
-        fn test_stmt_expr_with_invalid_statement() {
-            let env = TypeEnv::new();
+        fn invalid_statement() {
+            let mut env = TypeEnv::new();
 
             let expr = Expr::StmtExpr(Box::new(Stmt::Reassignment {
                 name: "x".to_string(),
                 expr: Expr::Bool(true), // Assume `x` is not declared in the environment
             }));
-            let result = type_check_expr(&expr, &env);
+            let result = type_check_expr(&expr, &mut env);
             assert!(result.is_err());
         }
     }

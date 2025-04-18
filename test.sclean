@@ -1,1 +1,3 @@
-let x = tuple.1;
+fun add(a: Int, b: Int): Int {
+    return a + b;   
+}

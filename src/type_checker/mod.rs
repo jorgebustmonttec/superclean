@@ -8,6 +8,7 @@ use crate::ast::{Stmt, Type};
 use std::collections::HashMap;
 
 /// Type environment to track variable and function types.
+#[derive(Debug, Clone)]
 pub struct TypeEnv {
     variables: HashMap<String, Type>,
     functions: HashMap<String, (Vec<Type>, Type)>, // (parameter types, return type)

@@ -137,6 +137,7 @@ fn parse_fun_stmt(input: Tokens) -> IResult<Tokens, Stmt> {
         }
     }
 
+    let input = skip_ignored(input);
     let (input, _) = tag_token(Token::RParen)(input)?;
     let input = skip_ignored(input);
 

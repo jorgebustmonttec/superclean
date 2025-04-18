@@ -3,14 +3,15 @@ use std::path::Path;
 
 use superclean::lexer::lex;
 use superclean::parser::parse;
+use superclean::type_checker::{TypeEnv, type_check_program};
 
 fn main() {
-    // Load input from test.txt
+    // Load input from test.sclean
     let path = Path::new("test.sclean");
     let input = match fs::read_to_string(path) {
         Ok(content) => content.trim_end().to_string(),
         Err(e) => {
-            eprintln!("Error reading test.txt: {}", e);
+            eprintln!("Error reading test.sclean: {}", e);
             return;
         }
     };
@@ -34,13 +35,28 @@ fn main() {
 
     // Step 2: Parsing
     println!("\n== Parsing ==");
-    match parse(&tokens) {
+    let stmts = match parse(&tokens) {
         Ok(ast) => {
             println!("AST:\n{:#?}", ast);
+            ast
         }
         Err(e) => {
             eprintln!("\nParser Error:");
             eprintln!("{:#?}", e);
+            return;
+        }
+    };
+
+    // Step 3: Type Checking
+    println!("\n== Type Checking ==");
+    match type_check_program(&stmts) {
+        Ok(env) => {
+            println!("Type Checking Successful!");
+            println!("Environment:\n{:#?}", env);
+        }
+        Err(e) => {
+            eprintln!("\nType Checking Error:");
+            eprintln!("{:?}", e);
         }
     }
 }
