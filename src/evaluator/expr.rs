@@ -7,6 +7,7 @@ pub fn eval_expr(expr: &Expr, env: &mut Env) -> Result<Value, String> {
         Expr::Int(value) => Ok(Value::Int(*value)),
         Expr::Float(value) => Ok(Value::Float(*value)),
         Expr::Bool(value) => Ok(Value::Bool(*value)),
+        Expr::String(value) => Ok(Value::String(value.clone())),
         Expr::BinOp { left, op, right } => eval_binop(left, op, right, env),
         Expr::UnaryOp { op, expr } => eval_unary_op(op, expr, env),
         _ => Err(format!("Unsupported expression: {:?}", expr)),
@@ -82,11 +83,27 @@ fn eval_binop(left: &Expr, op: &BinOp, right: &Expr, env: &mut Env) -> Result<Va
         (Value::Float(l), Value::Float(r), BinOp::Greater) => Ok(Value::Bool(l > r)),
         (Value::Float(l), Value::Float(r), BinOp::GreaterEqual) => Ok(Value::Bool(l >= r)),
 
+        // String concatenation
+        (Value::String(l), r, BinOp::Add) => Ok(Value::String(l + &value_to_string(r))),
+        (l, Value::String(r), BinOp::Add) => Ok(Value::String(value_to_string(l) + &r)),
+        (Value::String(l), Value::String(r), BinOp::Add) => Ok(Value::String(l + &r)),
+
         // Unsupported operations
         _ => Err(format!(
             "Unsupported binary operation: {:?} {:?} {:?}",
             left, op, right
         )),
+    }
+}
+
+/// Converts a `Value` to a string for concatenation.
+fn value_to_string(value: Value) -> String {
+    match value {
+        Value::Int(i) => i.to_string(),
+        Value::Float(f) => f.to_string(),
+        Value::Bool(b) => b.to_string(),
+        Value::String(s) => s,
+        _ => format!("{:?}", value), // Fallback for unsupported types
     }
 }
 
@@ -454,6 +471,66 @@ mod eval_test {
             };
             let result = eval_expr(&expr, &mut env);
             assert_eq!(result, Ok(Value::Float(-3.14)));
+        }
+    }
+
+    mod string {
+        use super::*;
+
+        #[test]
+        fn literal() {
+            let mut env = Env::new();
+            let expr = Expr::String("hello".to_string());
+            let result = eval_expr(&expr, &mut env);
+            assert_eq!(result, Ok(Value::String("hello".to_string())));
+        }
+
+        #[test]
+        fn concat_with_string() {
+            let mut env = Env::new();
+            let expr = Expr::BinOp {
+                left: Box::new(Expr::String("hello".to_string())),
+                op: BinOp::Add,
+                right: Box::new(Expr::String(" world".to_string())),
+            };
+            let result = eval_expr(&expr, &mut env);
+            assert_eq!(result, Ok(Value::String("hello world".to_string())));
+        }
+
+        #[test]
+        fn concat_with_int() {
+            let mut env = Env::new();
+            let expr = Expr::BinOp {
+                left: Box::new(Expr::String("result: ".to_string())),
+                op: BinOp::Add,
+                right: Box::new(Expr::Int(42)),
+            };
+            let result = eval_expr(&expr, &mut env);
+            assert_eq!(result, Ok(Value::String("result: 42".to_string())));
+        }
+
+        #[test]
+        fn concat_with_float() {
+            let mut env = Env::new();
+            let expr = Expr::BinOp {
+                left: Box::new(Expr::String("value: ".to_string())),
+                op: BinOp::Add,
+                right: Box::new(Expr::Float(3.14)),
+            };
+            let result = eval_expr(&expr, &mut env);
+            assert_eq!(result, Ok(Value::String("value: 3.14".to_string())));
+        }
+
+        #[test]
+        fn concat_with_bool() {
+            let mut env = Env::new();
+            let expr = Expr::BinOp {
+                left: Box::new(Expr::String("is true: ".to_string())),
+                op: BinOp::Add,
+                right: Box::new(Expr::Bool(true)),
+            };
+            let result = eval_expr(&expr, &mut env);
+            assert_eq!(result, Ok(Value::String("is true: true".to_string())));
         }
     }
 }

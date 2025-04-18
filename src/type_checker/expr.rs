@@ -112,8 +112,14 @@ fn type_check_binop(
             Ok(Type::Bool)
         }
 
-        // Concatenation for strings
-        (Type::String, Type::String, BinOp::Add) => Ok(Type::String),
+        // String concatenation with literals
+        (Type::String, Type::Int, BinOp::Add)
+        | (Type::String, Type::Float, BinOp::Add)
+        | (Type::String, Type::Bool, BinOp::Add)
+        | (Type::Int, Type::String, BinOp::Add)
+        | (Type::Float, Type::String, BinOp::Add)
+        | (Type::Bool, Type::String, BinOp::Add)
+        | (Type::String, Type::String, BinOp::Add) => Ok(Type::String),
 
         // Equality and inequality for strings
         (Type::String, Type::String, BinOp::Equal)
@@ -336,6 +342,32 @@ mod expr_type_tests {
             let mut env = TypeEnv::new();
             let result = type_check_expr(&expr, &mut env);
             assert_eq!(result, Ok(Type::String));
+        }
+
+        #[test]
+        fn string_concatenation_with_literals() {
+            let mut env = TypeEnv::new();
+
+            let expr = Expr::BinOp {
+                left: Box::new(Expr::String("Number: ".to_string())),
+                op: BinOp::Add,
+                right: Box::new(Expr::Int(42)),
+            };
+            assert_eq!(type_check_expr(&expr, &mut env), Ok(Type::String));
+
+            let expr = Expr::BinOp {
+                left: Box::new(Expr::String("Pi: ".to_string())),
+                op: BinOp::Add,
+                right: Box::new(Expr::Float(3.14)),
+            };
+            assert_eq!(type_check_expr(&expr, &mut env), Ok(Type::String));
+
+            let expr = Expr::BinOp {
+                left: Box::new(Expr::String("Boolean: ".to_string())),
+                op: BinOp::Add,
+                right: Box::new(Expr::Bool(true)),
+            };
+            assert_eq!(type_check_expr(&expr, &mut env), Ok(Type::String));
         }
 
         #[test]
